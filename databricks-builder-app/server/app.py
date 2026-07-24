@@ -1,4 +1,4 @@
-"""FastAPI app for the Claude Code MCP application."""
+"""FastAPI app for the Databricks Builder App."""
 
 import asyncio
 import logging

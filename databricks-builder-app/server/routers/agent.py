@@ -299,11 +299,16 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
                     is_error = event.get('is_error', False)
 
                     # Detect cascade failure pattern - "Stream closed" errors indicate
-                    # the Claude subprocess's MCP connection is broken
+                    # the Claude agent subprocess channel is broken
                     if is_error and 'Stream closed' in str(content):
-                        logger.error(f'Detected MCP connection failure: {content}')
+                        logger.error(f'Detected agent stream failure: {content}')
                         # Add context to the error
-                        content = f'MCP Connection Lost: The tool execution was interrupted because the internal communication channel broke. This usually happens after a long-running operation. Please start a new conversation to reset the connection. Original error: {content}'
+                        content = (
+                            'Agent connection lost: tool execution was interrupted because the '
+                            'internal communication channel broke. This usually happens after a '
+                            'long-running operation. Please start a new conversation to reset the '
+                            f'connection. Original error: {content}'
+                        )
 
                     stream.add_event({
                         'type': 'tool_result',
