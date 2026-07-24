@@ -35,7 +35,25 @@ def test_provision_project_files_uses_api_key_helper(tmp_path):
       'CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS': '1',
     },
     'enableAllProjectMcpServers': False,
+    'mcpServers': {},
   }
+
+
+def test_local_auth_writes_mcp_disabled_project_settings(tmp_path, monkeypatch):
+  from server.services import agent
+
+  monkeypatch.delenv('DATABRICKS_CLIENT_ID', raising=False)
+
+  agent._build_claude_auth(
+    project_dir=tmp_path,
+    fmapi_host='https://example.databricks.com',
+    fmapi_token='local-token',
+  )
+
+  settings = json.loads((tmp_path / '.claude' / 'settings.json').read_text())
+  assert settings['enableAllProjectMcpServers'] is False
+  assert settings['mcpServers'] == {}
+  assert 'apiKeyHelper' not in settings
 
 
 def test_deployed_agent_auth_keeps_oauth_token_out_of_subprocess_env(

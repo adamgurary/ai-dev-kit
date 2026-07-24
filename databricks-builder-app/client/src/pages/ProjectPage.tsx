@@ -66,7 +66,7 @@ function ToolsUsedBadge({ tools }: { tools: string[] }) {
   if (tools.length === 0) return null;
 
   // Deduplicate and clean tool names
-  const uniqueTools = [...new Set(tools.map(t => t.replace('mcp__databricks__', '').replace(/_/g, ' ')))];
+  const uniqueTools = [...new Set(tools.map(t => t.replace(/_/g, ' ')))];
 
   return (
     <div className="mt-2">
@@ -125,7 +125,7 @@ function ActivitySection({
   const currentTool = [...items].reverse().find((item) => item.type === 'tool_use');
   if (!currentTool) return null;
 
-  const toolName = currentTool.toolName?.replace('mcp__databricks__', '').replace(/_/g, ' ') || 'working';
+  const toolName = currentTool.toolName?.replace(/_/g, ' ') || 'working';
 
   return (
     <div className="flex items-start gap-3 max-w-3xl">

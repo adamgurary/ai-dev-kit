@@ -36,6 +36,27 @@ def _atomic_write(path: Path, content: str, *, mode: int) -> None:
     raise
 
 
+def ensure_project_disables_mcp(project_dir: Path) -> None:
+  """Ensure project Claude settings explicitly disable MCP servers.
+
+  Safe for local and deployed. Merges into existing settings.json when present
+  so deployed apiKeyHelper config is preserved.
+  """
+  settings_path = project_dir / SETTINGS_FILE
+  settings: dict = {}
+  if settings_path.exists():
+    try:
+      loaded = json.loads(settings_path.read_text())
+      if isinstance(loaded, dict):
+        settings = loaded
+    except json.JSONDecodeError:
+      settings = {}
+
+  settings['enableAllProjectMcpServers'] = False
+  settings['mcpServers'] = {}
+  _atomic_write(settings_path, json.dumps(settings, indent=2) + '\n', mode=0o600)
+
+
 def provision_project_files(
   project_dir: Path,
   *,
@@ -61,6 +82,7 @@ def provision_project_files(
       'CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS': '1',
     },
     'enableAllProjectMcpServers': False,
+    'mcpServers': {},
   }
   _atomic_write(
     project_dir / SETTINGS_FILE,

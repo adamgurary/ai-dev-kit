@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-  title='Claude Code MCP App',
+  title='Databricks Builder App',
   description='Project-based Claude Code agent application',
   lifespan=lifespan,
 )

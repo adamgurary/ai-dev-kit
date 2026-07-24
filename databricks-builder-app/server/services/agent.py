@@ -1,10 +1,10 @@
 """Claude Code Agent service for managing agent sessions.
 
 Uses the claude-agent-sdk to create and manage Claude Code agent sessions
-with directory-scoped file permissions and Databricks tools.
+with directory-scoped file permissions and skills-driven Databricks CLI access.
 
-Databricks tools are loaded in-process from the vendored databricks_agent_tools package using
-the SDK tool wrapper. Auth is handled via contextvars for multi-user support.
+Databricks workflows come from project skills. CLI/SDK subprocess auth is
+scoped to a per-project profile so local and deployed execution behave alike.
 
 MLflow Tracing:
   Uses ClaudeSDKClient with mlflow.anthropic.autolog() for automatic tracing.
@@ -48,8 +48,12 @@ from databricks_tools_core.auth import set_databricks_auth, clear_databricks_aut
 
 from .backup_manager import ensure_project_directory as _ensure_project_directory
 from .backup_manager import ensure_project_directory_async as _ensure_project_directory_async
-from .databricks_tools import load_databricks_tools, create_filtered_databricks_server
-from .fmapi_auth import is_deployed_mode, provision_project_files
+from .cli_auth import build_cli_auth_env
+from .fmapi_auth import (
+  ensure_project_disables_mcp,
+  is_deployed_mode,
+  provision_project_files,
+)
 from .system_prompt import get_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -59,14 +63,10 @@ BUILTIN_TOOLS = [
   'Read',
   'Write',
   'Edit',
-#  'Bash',
+  'Bash',
   'Glob',
   'Grep',
 ]
-
-# Cached Databricks tools (loaded once)
-_databricks_server = None
-_databricks_tool_names = None
 
 # Cached Claude settings (loaded once)
 _claude_settings = None
@@ -145,7 +145,9 @@ def _build_claude_auth(
     return claude_env
 
   # Preserve the existing local path. Local development does not relocate or
-  # overwrite the developer's Claude configuration.
+  # overwrite the developer's Claude configuration. Still pin project settings
+  # so Claude does not attempt leftover project MCP servers.
+  ensure_project_disables_mcp(project_dir)
   claude_env.update({
     'ANTHROPIC_BASE_URL': anthropic_base_url,
     'ANTHROPIC_API_KEY': effective_token,
@@ -170,23 +172,6 @@ def _claude_setting_sources() -> list[str]:
   ecosystem and can stall local chat startup for minutes.
   """
   return ['project']
-
-
-def get_databricks_tools(force_reload: bool = False):
-  """Get Databricks tools, optionally forcing a reload.
-
-  Args:
-      force_reload: If True, recreate the MCP server to clear any corrupted state
-
-  Returns:
-      Tuple of (server, tool_names)
-  """
-  global _databricks_server, _databricks_tool_names
-  if _databricks_server is None or force_reload:
-    if force_reload:
-      logger.info('Force reloading Databricks MCP server')
-    _databricks_server, _databricks_tool_names = load_databricks_tools()
-  return _databricks_server, _databricks_tool_names
 
 
 def get_project_directory(project_id: str) -> Path:
@@ -396,25 +381,10 @@ async def stream_agent_response(
     # Build allowed tools list
     allowed_tools = BUILTIN_TOOLS.copy()
 
-    # Sync project skills directory before running agent
-    from .skills_manager import sync_project_skills, get_available_skills, get_allowed_mcp_tools
+    # Sync project skills before running the CLI-only agent. Skills contain
+    # the Databricks CLI / Python SDK workflows that replace MCP tools.
+    from .skills_manager import sync_project_skills, get_available_skills
     sync_project_skills(project_dir, enabled_skills=enabled_skills)
-
-    # Get Databricks tools and filter based on enabled skills.
-    # We must create a filtered MCP server (not just filter allowed_tools)
-    # because bypassPermissions mode exposes all tools in registered MCP servers.
-    databricks_server, databricks_tool_names = get_databricks_tools()
-    filtered_tool_names = get_allowed_mcp_tools(databricks_tool_names, enabled_skills=enabled_skills)
-
-    if len(filtered_tool_names) < len(databricks_tool_names):
-      # Some tools are blocked — create a filtered MCP server with only allowed tools
-      databricks_server, filtered_tool_names = create_filtered_databricks_server(filtered_tool_names)
-      blocked_count = len(databricks_tool_names) - len(filtered_tool_names)
-      logger.info(f'Databricks MCP server: {len(filtered_tool_names)} tools allowed, {blocked_count} blocked by disabled skills')
-    else:
-      logger.info(f'Databricks MCP server configured with {len(filtered_tool_names)} tools')
-
-    allowed_tools.extend(filtered_tool_names)
 
     # Only add the Skill tool if there are enabled skills for the agent to use
     available = get_available_skills(enabled_skills=enabled_skills)
@@ -448,6 +418,13 @@ async def stream_agent_response(
       fmapi_token=fmapi_token,
       databricks_host=databricks_host,
       databricks_token=databricks_token,
+    )
+    claude_env.update(
+      build_cli_auth_env(
+        project_dir,
+        host=databricks_host,
+        token=databricks_token,
+      )
     )
 
     # Databricks SDK upstream tracking for subprocess user-agent attribution
@@ -531,7 +508,7 @@ async def stream_agent_response(
       can_use_tool=can_use_tool,
       hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[_keepalive_hook])]},
       resume=session_id,  # Resume from previous session if provided
-      mcp_servers={'databricks': databricks_server},  # In-process SDK tools
+      mcp_servers={},  # Skills + Databricks CLI only (no MCP servers)
       system_prompt=system_prompt,  # Databricks-focused system prompt
       setting_sources=setting_sources,  # Skills from project filesystem
       env=claude_env,  # Deploy uses project apiKeyHelper; local uses FMAPI env.

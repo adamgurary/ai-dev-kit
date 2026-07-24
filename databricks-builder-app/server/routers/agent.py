@@ -126,21 +126,21 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
         f'Invoking agent for project: {body.project_id}, conversation: {body.conversation_id}'
     )
 
-    # Get current user and Databricks auth
+    # Get current user and separate model/tool credentials.
     user_email = await get_current_user(request)
-    # Use FMAPI token for Claude API (Service Principal OAuth in production)
-    user_token = await get_fmapi_token(request)
+    fmapi_token = await get_fmapi_token(request)
+    workspace_token = await get_current_token(request)
     workspace_url = get_workspace_url()
 
     # FMAPI (Claude API) always uses the Builder App's own workspace
     fmapi_host = workspace_url
-    fmapi_token = user_token
 
-    # Databricks tool operations target the caller-specified workspace when
-    # cross-workspace params are provided, otherwise default to this workspace
+    # Skills/CLI operations target the caller-specified workspace when present.
+    # Prefer the Apps proxy's request-scoped user token; retain the prior SP
+    # fallback when the proxy does not provide one.
     is_cross_workspace = body.target_databricks_host is not None
     tools_host = body.target_databricks_host or workspace_url
-    tools_token = body.target_databricks_token or user_token
+    tools_token = body.target_databricks_token or workspace_token or fmapi_token
 
     # Verify project exists and belongs to user
     project_storage = ProjectStorage(user_email)

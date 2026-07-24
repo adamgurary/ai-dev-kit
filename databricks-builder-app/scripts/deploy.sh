@@ -191,11 +191,9 @@ echo "  Copying frontend build..."
 mkdir -p "$STAGING_DIR/client"
 cp -r client/out "$STAGING_DIR/client/"
 
-echo "  Copying Databricks packages..."
+echo "  Copying Databricks auth helpers..."
 mkdir -p "$STAGING_DIR/packages/databricks_tools_core"
 cp -r "$PROJECT_DIR/packages/databricks_tools_core/"* "$STAGING_DIR/packages/databricks_tools_core/"
-mkdir -p "$STAGING_DIR/packages/databricks_agent_tools"
-cp -r "$PROJECT_DIR/packages/databricks_agent_tools/"* "$STAGING_DIR/packages/databricks_agent_tools/"
 
 if [ "$SKIP_SKILLS" = true ] && [ -d "$SKILLS_CACHE_DIR" ] && [ "$(ls -A "$SKILLS_CACHE_DIR" 2>/dev/null)" ]; then
   mkdir -p "$STAGING_DIR/skills"

@@ -203,10 +203,10 @@ else
   echo -e "  ${GREEN}✓${NC} Backend dependencies installed"
 fi
 
-if [ -d "$PROJECT_DIR/packages/databricks_tools_core" ] && [ -d "$PROJECT_DIR/packages/databricks_agent_tools" ]; then
-  echo -e "  ${GREEN}✓${NC} Vendored Databricks tool packages present"
+if [ -d "$PROJECT_DIR/packages/databricks_tools_core" ]; then
+  echo -e "  ${GREEN}✓${NC} Vendored Databricks auth helpers present"
 else
-  echo -e "  ${RED}Error: packages/databricks_tools_core or packages/databricks_agent_tools missing${NC}"
+  echo -e "  ${RED}Error: packages/databricks_tools_core missing${NC}"
   exit 1
 fi
 echo ""

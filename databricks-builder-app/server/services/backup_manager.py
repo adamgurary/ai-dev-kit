@@ -43,6 +43,7 @@ _BACKUP_EXCLUDED_PATHS = {
 _BACKUP_EXCLUDED_PREFIXES = (
   '.anthropic_token.',
   '.get_anthropic_token.sh.',
+  '.databrickscfg.',
   '.claude/skills/',
   '.claude/statsig/',
   '.claude/.shell-snapshots/',

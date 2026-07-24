@@ -23,17 +23,25 @@ Resolved by `server/services/user.py` → `get_current_user(request)`:
 2. Bearer token identity
 3. Local development fallbacks
 
-## Databricks tool auth vs FMAPI auth
+## Databricks CLI auth vs FMAPI auth
 
-- **Tools / SDK** (Unity Catalog, Jobs, etc.): user (or forwarded) Databricks token
-  via contextvars (`set_databricks_auth`).
-- **Claude / titles**: FMAPI OAuth token (`get_fmapi_token`) — may differ from the
-  tools token in cross-workspace scenarios.
+The agent is **skills + Databricks CLI only** (`mcp_servers={}`). No in-process
+Databricks MCP tools are registered.
+
+- **Claude / titles**: FMAPI OAuth token (`get_fmapi_token`) for model serving.
+- **Skills / Bash / CLI**: request-scoped workspace token via
+  `get_current_token()` (`X-Forwarded-Access-Token` on Apps; `DATABRICKS_TOKEN`
+  locally). Written to `<project>/.databrickscfg` and selected with
+  `DATABRICKS_CONFIG_FILE` / `DATABRICKS_CONFIG_PROFILE=DEFAULT` /
+  `DATABRICKS_AUTH_TYPE=pat`. In deployed mode, inherited
+  `DATABRICKS_CLIENT_ID` / `SECRET` are scrubbed so the CLI does not run as the
+  app service principal.
+- **App API helpers** (clusters/warehouses list): still use
+  `databricks_tools_core.auth` contextvars where needed.
 
 In deployed mode, the FMAPI token is written to `<project>/.anthropic_token` and
-read by `get_anthropic_token.sh` (Claude `apiKeyHelper`). That token must **not**
-appear in the Claude subprocess environment, and must **not** be stored in
-Lakebase project backups.
+read by `get_anthropic_token.sh` (Claude `apiKeyHelper`). FMAPI token files and
+`.databrickscfg` must **not** appear in Lakebase project backups.
 
 ## Session durability (deploy)
 

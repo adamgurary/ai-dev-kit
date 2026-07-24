@@ -24,7 +24,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <Home className="h-4 w-4" /> },
-  { id: 'app', label: 'MCP App', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 'app', label: 'Builder App', icon: <Sparkles className="h-4 w-4" /> },
 ];
 
 function OverviewSection() {
@@ -35,7 +35,7 @@ function OverviewSection() {
           Databricks AI Dev Kit
         </h1>
         <p className="mt-2 text-lg text-[var(--color-text-muted)]">
-          Build Databricks projects with AI coding assistants using MCP (Model Context Protocol)
+          Build Databricks projects with AI coding assistants, skills, and the Databricks CLI
         </p>
       </div>
 
@@ -49,15 +49,15 @@ function OverviewSection() {
         <ul className="mt-4 space-y-2">
           <li className="flex items-start gap-3">
             <BookOpen className="h-5 w-5 text-[var(--color-accent-primary)] mt-0.5 flex-shrink-0" />
-            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">databricks-agent-skills</code> (via <code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">databricks aitools</code>) - Teach AI assistants best practices, patterns, and which tools to use</span>
+            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">databricks-agent-skills</code> (via <code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">databricks aitools</code>) - Teach AI assistants supported CLI and Python SDK workflows</span>
           </li>
           <li className="flex items-start gap-3">
             <Database className="h-5 w-5 text-[var(--color-accent-primary)] mt-0.5 flex-shrink-0" />
-            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">packages/databricks_tools_core/</code> - Python functions for sql/, unity_catalog/, compute/, pipelines/, agent_bricks/</span>
+            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">databricks CLI</code> - Executes SQL, jobs, pipelines, Unity Catalog, workspace, and other Databricks operations</span>
           </li>
           <li className="flex items-start gap-3">
             <Server className="h-5 w-5 text-[var(--color-accent-primary)] mt-0.5 flex-shrink-0" />
-            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">packages/databricks_agent_tools/</code> - In-process tool wrappers for the Claude Agent SDK</span>
+            <span><code className="font-mono text-sm bg-[var(--color-background)] px-1.5 py-0.5 rounded">Python SDK</code> - Provides a fallback for operations the CLI does not expose directly</span>
           </li>
           <li className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-[var(--color-accent-primary)] mt-0.5 flex-shrink-0" />
@@ -79,7 +79,7 @@ function OverviewSection() {
               <h3 className="font-semibold text-[var(--color-text-heading)] font-mono">ai-dev-kit/</h3>
             </div>
 
-            {/* Skills (left) and MCP Server with Tools (right) */}
+            {/* Skills and authenticated CLI execution */}
             <div className="grid gap-4 md:grid-cols-2">
               {/* Skills Layer - Left */}
               <div className="rounded-xl border-2 border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5 p-4 h-fit">
@@ -89,7 +89,7 @@ function OverviewSection() {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-accent-primary)]/20 text-[var(--color-accent-primary)]">Knowledge</span>
                 </div>
                 <p className="text-sm text-[var(--color-text-muted)] mb-3">
-                  Installed via <code className="font-mono text-xs">databricks aitools</code>. Skills explain <em>how</em> to do things and reference the vendored tools.
+                  Installed via <code className="font-mono text-xs">databricks aitools</code>. Skills explain <em>how</em> to complete workflows with the CLI or Python SDK.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {['databricks-dabs/', 'databricks-apps-python/', 'databricks-python-sdk/', 'databricks-mlflow-evaluation/', 'databricks-pipelines/', 'databricks-synthetic-data-gen/'].map((skill) => (
@@ -100,26 +100,26 @@ function OverviewSection() {
                 </div>
               </div>
 
-              {/* Agent tools wrap tools core - Right */}
+              {/* CLI execution - Right */}
               <div className="rounded-xl border-2 border-dashed border-green-500/40 p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Server className="h-5 w-5 text-green-400" />
-                  <h3 className="font-semibold text-[var(--color-text-heading)] font-mono">packages/databricks_agent_tools/</h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">In-process tools</span>
+                  <Terminal className="h-5 w-5 text-green-400" />
+                  <h3 className="font-semibold text-[var(--color-text-heading)] font-mono">Skill → Bash → Databricks</h3>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">CLI only</span>
                 </div>
                 <p className="text-sm text-[var(--color-text-muted)] mb-3">
-                  Vendored FastMCP wrappers registered with the Claude Agent SDK (no separate MCP server process).
+                  Claude loads a product skill, then runs its authenticated Databricks CLI commands or Python SDK scripts through Bash.
                 </p>
 
-                {/* Tools Core Layer (nested inside tool server) */}
+                {/* Auth layer */}
                 <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Database className="h-5 w-5 text-[var(--color-accent-primary)]" />
-                    <h3 className="font-semibold text-[var(--color-text-heading)] font-mono">packages/databricks_tools_core/</h3>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-accent-primary)]/20 text-[var(--color-accent-primary)]">Python</span>
+                    <h3 className="font-semibold text-[var(--color-text-heading)] font-mono">Project-scoped auth</h3>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-accent-primary)]/20 text-[var(--color-accent-primary)]">Per user</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {['sql/', 'unity_catalog/', 'compute/', 'spark_declarative_pipelines/', 'agent_bricks/', 'file/'].map((module) => (
+                    {['.databrickscfg (0600)', 'request token', 'databricks CLI', 'WorkspaceClient()', 'mcp_servers={}'].map((module) => (
                       <span key={module} className="text-xs px-2 py-1 rounded bg-[var(--color-accent-primary)]/10 text-[var(--color-text-secondary)] font-mono">
                         {module}
                       </span>
@@ -155,7 +155,7 @@ function OverviewSection() {
               </div>
             </div>
 
-            {/* MCP App */}
+            {/* Builder App */}
             <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-5 w-5 text-orange-400" />
@@ -250,7 +250,7 @@ function OverviewSection() {
               <div>
                 <p className="font-medium text-[var(--color-text-heading)]">Execute on Databricks</p>
                 <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Call <code className="px-1 py-0.5 rounded bg-[var(--color-background)] text-xs">execute_code(file_path=...)</code> - auto-selects best cluster, creates execution context, installs required libraries
+                  Follow the skill&apos;s CLI or Python SDK workflow to upload and run the script on the selected Databricks compute
                 </p>
               </div>
             </div>
@@ -263,7 +263,7 @@ function OverviewSection() {
               <div>
                 <p className="font-medium text-[var(--color-text-heading)]">Fix & Retry</p>
                 <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  If error, edit local file, re-execute with same <code className="px-1 py-0.5 rounded bg-[var(--color-background)] text-xs">cluster_id</code> + <code className="px-1 py-0.5 rounded bg-[var(--color-background)] text-xs">context_id</code> (faster, keeps state)
+                  Inspect CLI output, edit the local source, rerun the documented command, and verify the resulting Databricks resource
                 </p>
               </div>
             </div>
@@ -326,7 +326,7 @@ function OverviewSection() {
               <h3 className="font-semibold text-[var(--color-text-heading)]">No hallucination</h3>
             </div>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Tools return real data and errors - the AI knows exactly what succeeded or failed, no guessing.
+              CLI commands return real output and errors, and the agent verifies resource state before claiming success.
             </p>
           </div>
 
@@ -336,7 +336,7 @@ function OverviewSection() {
               <h3 className="font-semibold text-[var(--color-text-heading)]">Built-in feedback loops</h3>
             </div>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Skills teach how to handle errors. Tools return structured results. The AI can iterate and self-correct.
+              Skills teach validation and recovery patterns. CLI output gives the agent a concrete feedback loop.
             </p>
           </div>
 
@@ -346,7 +346,7 @@ function OverviewSection() {
               <h3 className="font-semibold text-[var(--color-text-heading)]">Fully decoupled</h3>
             </div>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Use tools natively (LangChain, Claude SDK, OpenAI) or via MCP. With or without skills. For any agent framework.
+              Skills remain portable instructions while the Builder App keeps execution simple with standard CLI and SDK interfaces.
             </p>
           </div>
         </div>
@@ -370,7 +370,7 @@ function AppSection() {
       <div className="rounded-xl border border-[var(--color-accent-primary)]/20 bg-[var(--color-accent-primary)]/5 p-6">
         <p className="text-[var(--color-text-secondary)]">
           You're using it right now! This application provides a web interface for interacting with Claude
-          and Databricks tools, with project-based organization and conversation history.
+          and authenticated Databricks CLI workflows, with project-based organization and conversation history.
         </p>
       </div>
 
@@ -406,7 +406,7 @@ function AppSection() {
                   <h3 className="font-semibold text-[var(--color-text-heading)]">FastAPI Backend</h3>
                 </div>
                 <p className="text-sm text-[var(--color-text-muted)]">
-                  Claude Agent SDK, MCP tools, file management
+                  Claude Agent SDK, skills, CLI authentication, file management
                 </p>
               </div>
 
@@ -425,7 +425,7 @@ function AppSection() {
                   Claude Code reads/writes files locally in the app folder <code className="px-1.5 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">project/&lt;project_id&gt;/</code>
                 </p>
                 <p className="text-sm text-[var(--color-text-muted)] mb-3">
-                  When starting a new project, we load skills and provide tools in the Claude Code session:
+                  When starting a new project, we load skills and provide project-scoped built-in tools:
                 </p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-[var(--color-accent-primary)]/30 bg-[var(--color-accent-primary)]/5 p-3">
@@ -434,16 +434,16 @@ function AppSection() {
                       <span className="font-semibold text-sm text-[var(--color-text-heading)]">Skills</span>
                     </div>
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      Best practices, patterns, how to use tools
+                      Product workflows, validation, CLI and SDK guidance
                     </p>
                   </div>
                   <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Cpu className="h-4 w-4 text-green-400" />
-                      <span className="font-semibold text-sm text-[var(--color-text-heading)]">Tools</span>
+                      <span className="font-semibold text-sm text-[var(--color-text-heading)]">Execution</span>
                     </div>
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      MCP functions to interact with Databricks
+                      Bash runs the Databricks CLI or Python SDK scripts
                     </p>
                   </div>
                 </div>
@@ -515,11 +515,11 @@ function AppSection() {
                 <ul className="mt-2 space-y-1 text-sm text-[var(--color-text-muted)]">
                   <li className="flex items-center gap-2">
                     <ChevronRight className="h-3 w-3 text-purple-400" />
-                    <strong>Built-in tools:</strong> Read, Write, Edit, Glob, Grep, Skill
+                    <strong>Built-in tools:</strong> Read, Write, Edit, Bash, Glob, Grep, Skill
                   </li>
                   <li className="flex items-center gap-2">
                     <ChevronRight className="h-3 w-3 text-purple-400" />
-                    <strong>Databricks tools:</strong> Dynamically loaded from <code className="px-1 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">databricks-tools-core</code>
+                    <strong>Databricks execution:</strong> Skills guide authenticated CLI and Python SDK commands through Bash
                   </li>
                   <li className="flex items-center gap-2">
                     <ChevronRight className="h-3 w-3 text-purple-400" />
@@ -581,8 +581,8 @@ function AppSection() {
               <div>
                 <h3 className="font-semibold text-[var(--color-text-heading)]">Per-User Databricks Auth</h3>
                 <p className="text-sm text-[var(--color-text-muted)] mt-1">
-                  Databricks credentials are injected per-request using Python <code className="px-1.5 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">contextvars</code>.
-                  Each user's tools run with their own Databricks permissions - no shared credentials.
+                  The backend writes a restrictive project-local <code className="px-1.5 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">.databrickscfg</code> from the request identity.
+                  Each user's CLI and SDK commands run with their own Databricks permissions.
                 </p>
               </div>
             </div>
@@ -590,22 +590,22 @@ function AppSection() {
         </div>
       </div>
 
-      {/* Authentication & MCP Server */}
+      {/* Authentication & CLI */}
       <div>
         <h2 className="text-xl font-semibold text-[var(--color-text-heading)] mb-4">
-          Authentication & MCP Server
+          Authentication & CLI Execution
         </h2>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5">
-          <h3 className="font-semibold text-[var(--color-text-heading)] mb-3">In-Process Tool Execution</h3>
+          <h3 className="font-semibold text-[var(--color-text-heading)] mb-3">Project-Scoped User Authentication</h3>
           <p className="text-sm text-[var(--color-text-muted)] mb-3">
-            We do <strong>not</strong> use an MCP server as a separate process. Instead, we wrap the Databricks tools directly with the Claude Agent SDK, so everything runs in the same Python process and memory space.
+            The Builder App registers <strong>no MCP servers</strong>. Skills teach Claude which commands to run, and the built-in Bash tool executes the Databricks CLI or short Python SDK scripts.
           </p>
           <p className="text-sm text-[var(--color-text-muted)] mb-3">
-            This design allows us to use Python <code className="px-1.5 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">contextvars</code> to inject per-user Databricks credentials at request time. Each tool call knows which user is calling it without passing auth tokens through the tool interface.
+            Before each invocation, the backend writes a <code className="px-1.5 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">0600</code> project CLI profile from the request-scoped user token. Databricks Apps service-principal variables are cleared so unified auth selects the user identity.
           </p>
           <div className="rounded-lg border border-[var(--color-accent-primary)]/30 bg-[var(--color-accent-primary)]/5 p-3 mt-4">
             <p className="text-sm text-[var(--color-text-secondary)]">
-              <strong>Benefits:</strong> No subprocess overhead, shared memory, per-request auth isolation, dynamic tool discovery from <code className="px-1 py-0.5 rounded bg-[var(--color-background)] text-xs font-mono">databricks-tools-core</code>.
+              <strong>Benefits:</strong> One execution path locally and on Apps, no MCP registration or discovery, portable skills, and auditable CLI commands.
             </p>
           </div>
         </div>
@@ -663,7 +663,7 @@ function AppSection() {
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4">
             <h3 className="font-semibold text-[var(--color-text-heading)] mb-2">Integration</h3>
             <div className="flex flex-wrap gap-2">
-              {['MCP Protocol', 'Databricks SDK', 'OAuth'].map((tech) => (
+              {['Databricks CLI', 'Databricks SDK', 'OAuth'].map((tech) => (
                 <span key={tech} className="text-xs px-2 py-1 rounded bg-purple-500/10 text-purple-400">
                   {tech}
                 </span>
