@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Install Genie Code Skills
 # MAGIC
-# MAGIC This notebook downloads AI Dev Kit skills from GitHub and uploads them to your workspace so Genie Code can use them.
+# MAGIC This notebook downloads the official Databricks Agent Skills from GitHub and uploads them to your workspace so Genie Code can use them.
 # MAGIC
 # MAGIC Skills are installed to `/Workspace/Users/<your_username>/.assistant/skills/`.
 # MAGIC
@@ -10,12 +10,11 @@
 # MAGIC
 # MAGIC Skills are auto-discovered from GitHub — no hardcoded lists to maintain.
 # MAGIC
-# MAGIC > **Note (deprecated bundled tree):** The Databricks skills bundled in this repo have been
-# MAGIC > frozen and superseded by `databricks aitools install` (Databricks CLI v1.0.0+, backed by
-# MAGIC > github.com/databricks/databricks-agent-skills). This notebook remains the simplest way to
-# MAGIC > upload skills to a workspace for **Genie Code**, which the CLI does not cover. Because the
-# MAGIC > bundled tree was removed from `main`, the AI Dev Kit source below is pinned to the last
-# MAGIC > release that shipped it (tag `v0.1.13`); MLflow skills still track `main`.
+# MAGIC > **Note:** Databricks skills now come from the official, engineering-supported set at
+# MAGIC > github.com/databricks/databricks-agent-skills (also installable via `databricks aitools
+# MAGIC > install`, Databricks CLI v1.0.0+). This notebook remains the simplest way to upload skills to
+# MAGIC > a workspace for **Genie Code**, which the CLI does not cover. It pulls the Databricks skills
+# MAGIC > from `main` of that repo; MLflow skills also track `main`.
 
 # COMMAND ----------
 
@@ -36,8 +35,7 @@ INSTALL_SKILLS = "all"
 # INSTALL_SKILLS = ["databricks-agent-bricks", "agent-evaluation"]
 
 # Default source branch or tag. Used for any source that does not set its own "ref".
-# The AI Dev Kit source pins to v0.1.13 (see SKILL_SOURCES) because the bundled skill
-# tree was removed from `main`; MLflow skills still track `main`.
+# Both sources (Databricks Agent Skills and MLflow skills) track `main`.
 GITHUB_REF = "main"
 
 # COMMAND ----------
@@ -58,11 +56,11 @@ from databricks.sdk.service.workspace import ImportFormat
 # Skills are auto-discovered: any subdirectory containing SKILL.md is a skill.
 
 SKILL_SOURCES = [
-    # AI Dev Kit skills are frozen; pin to the last release that bundled the tree
-    # at databricks-skills/<name>/ (v0.1.13). `main` no longer contains it.
-    {"owner": "databricks-solutions", "repo": "ai-dev-kit", "path": "databricks-skills",
-     "ref": "v0.1.13", "skip": {"TEMPLATE", "deprecated"}},
-    {"owner": "mlflow",               "repo": "skills",      "path": ""},
+    # Official, engineering-supported Databricks skills. Each skill lives at
+    # skills/<name>/ (SKILL.md + supporting files).
+    {"owner": "databricks", "repo": "databricks-agent-skills", "path": "skills",
+     "skip": {"TEMPLATE", "deprecated"}},
+    {"owner": "mlflow",     "repo": "skills",                  "path": ""},
 ]
 
 
