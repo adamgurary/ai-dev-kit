@@ -24,6 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from .db import is_postgres_configured, is_dynamic_token_mode, run_migrations, init_database, start_token_refresh, stop_token_refresh
 from .routers import agent_router, clusters_router, config_router, conversations_router, projects_router, skills_router, warehouses_router
+from .routers.config import get_user_info
 from .services.backup_manager import start_backup_worker, stop_backup_worker
 from .services.skills_manager import copy_skills_to_app
 
@@ -123,6 +124,12 @@ API_PREFIX = '/api'
 
 # Include routers
 app.include_router(config_router, prefix=f'{API_PREFIX}/config', tags=['configuration'])
+app.add_api_route(
+  f'{API_PREFIX}/me',
+  get_user_info,
+  methods=['GET'],
+  tags=['configuration'],
+)
 app.include_router(clusters_router, prefix=API_PREFIX, tags=['clusters'])
 app.include_router(warehouses_router, prefix=API_PREFIX, tags=['warehouses'])
 app.include_router(projects_router, prefix=API_PREFIX, tags=['projects'])

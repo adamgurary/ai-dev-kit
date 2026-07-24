@@ -591,6 +591,24 @@ export default function ProjectPage() {
             onError: (error) => {
               console.error('Reconnect error:', error);
               toast.error('Failed to reconnect to execution');
+              delete allStreamsRef.current[reconConvId];
+              setStreamingConvIds(prev => prev.filter(id => id !== reconConvId));
+              if (currentConvIdRef.current === reconConvId) {
+                setIsReconnecting(false);
+                setActiveExecutionId(null);
+                setStreamingText('');
+                setActivityItems([]);
+                setTodos([]);
+              }
+              // Reload saved messages — do not leave the UI stuck reconnecting.
+              fetchConversation(projectId, reconConvId)
+                .then((conv) => {
+                  if (currentConvIdRef.current === reconConvId) {
+                    setCurrentConversation(conv);
+                    setMessages(conv.messages || []);
+                  }
+                })
+                .catch(() => undefined);
             },
             onDone: async () => {
               delete allStreamsRef.current[reconConvId];

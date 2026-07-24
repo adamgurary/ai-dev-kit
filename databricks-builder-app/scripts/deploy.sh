@@ -272,6 +272,10 @@ env:
     value: "databricks-gemini-3-flash"
   - name: CLAUDE_CODE_STREAM_CLOSE_TIMEOUT
     value: "3600000"
+  - name: ANTHROPIC_MODEL
+    value: "databricks-claude-opus-4-6"
+  - name: ANTHROPIC_MODEL_MINI
+    value: "databricks-claude-sonnet-4-5"
   - name: MLFLOW_TRACKING_URI
     value: "databricks"
   - name: MLFLOW_EXPERIMENT_NAME

@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -19,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..services.active_stream import get_stream_manager
-from ..services.agent import get_project_directory, stream_agent_response
+from ..services.agent import get_project_directory, get_project_directory_async, stream_agent_response
 from ..services.backup_manager import mark_for_backup
 from ..services.storage import ConversationStorage, ProjectStorage
 from ..services.title_generator import generate_title_async
@@ -74,6 +75,42 @@ class StopStreamResponse(BaseModel):
     message: str
 
 
+_MISSING_SESSION_ERROR = 'No conversation found with session ID'
+
+
+async def _stream_with_stale_session_retry(
+    *,
+    session_id: Optional[str],
+    stream_factory: Callable[[Optional[str]], AsyncIterator[dict]],
+    clear_session: Callable[[], Awaitable[None]],
+) -> AsyncIterator[dict]:
+    """Retry once without resume when Claude's persisted session is missing."""
+    current_session_id = session_id
+
+    while True:
+        retry_fresh = False
+        async for event in stream_factory(current_session_id):
+            if (
+                current_session_id
+                and event.get('type') == 'error'
+                and _MISSING_SESSION_ERROR in str(event.get('error', ''))
+            ):
+                retry_fresh = True
+                break
+            yield event
+
+        if not retry_fresh:
+            return
+
+        logger.warning(
+            'Claude session %s is unavailable; clearing it and retrying once',
+            current_session_id,
+        )
+        await clear_session()
+        current_session_id = None
+        yield {'type': 'system', 'subtype': 'session_reset', 'data': None}
+
+
 @router.post('/invoke_agent', response_model=InvokeAgentResponse)
 async def invoke_agent(request: Request, body: InvokeAgentRequest):
     """Start the Claude Code agent asynchronously.
@@ -112,9 +149,10 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
         logger.error(f'Project not found: {body.project_id}')
         raise HTTPException(status_code=404, detail=f'Project not found: {body.project_id}')
 
-    # Read enabled skills from project filesystem (not DB)
+    # Read enabled skills from project filesystem (not DB). Await restore so
+    # Claude transcripts are on disk before session resume.
     from ..services.skills_manager import get_project_enabled_skills
-    project_dir = get_project_directory(body.project_id)
+    project_dir = await get_project_directory_async(body.project_id)
     enabled_skills = get_project_enabled_skills(project_dir)
 
     # Get or create conversation
@@ -172,25 +210,35 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
         received_deltas = False  # Track if we received streaming deltas
 
         try:
+            def stream_factory(resume_session_id: Optional[str]) -> AsyncIterator[dict]:
+                return stream_agent_response(
+                    project_id=body.project_id,
+                    message=body.message,
+                    session_id=resume_session_id,
+                    cluster_id=body.cluster_id,
+                    default_catalog=body.default_catalog,
+                    default_schema=body.default_schema,
+                    warehouse_id=body.warehouse_id,
+                    workspace_folder=body.workspace_folder,
+                    fmapi_host=fmapi_host,
+                    fmapi_token=fmapi_token,
+                    databricks_host=tools_host,
+                    databricks_token=tools_token,
+                    is_cross_workspace=is_cross_workspace,
+                    is_cancelled_fn=lambda: stream.is_cancelled,
+                    enabled_skills=enabled_skills,
+                    mlflow_experiment_name=body.mlflow_experiment_name,
+                )
+
+            async def clear_stale_session() -> None:
+                await conv_storage.update_session_id(conversation_id, None)
+
             # Stream all events from Claude
             # Pass a cancellation check function so the agent thread can stop early
-            async for event in stream_agent_response(
-                project_id=body.project_id,
-                message=body.message,
+            async for event in _stream_with_stale_session_retry(
                 session_id=session_id,
-                cluster_id=body.cluster_id,
-                default_catalog=body.default_catalog,
-                default_schema=body.default_schema,
-                warehouse_id=body.warehouse_id,
-                workspace_folder=body.workspace_folder,
-                fmapi_host=fmapi_host,
-                fmapi_token=fmapi_token,
-                databricks_host=tools_host,
-                databricks_token=tools_token,
-                is_cross_workspace=is_cross_workspace,
-                is_cancelled_fn=lambda: stream.is_cancelled,
-                enabled_skills=enabled_skills,
-                mlflow_experiment_name=body.mlflow_experiment_name,
+                stream_factory=stream_factory,
+                clear_session=clear_stale_session,
             ):
                 # Check if cancelled (also checked in agent thread, but double-check here)
                 if stream.is_cancelled:
@@ -595,6 +643,23 @@ async def get_conversation_executions(
         exec_storage = ExecutionStorage(user_email, project_id, conversation_id)
         active = await exec_storage.get_active()
         recent = await exec_storage.get_recent(limit=5)
+
+        # After process restart, DB can still say "running" while the in-memory
+        # stream is gone. Treat those as orphaned — never hand them to the
+        # client as reconnectable (stream_progress would 404).
+        if active is not None and in_memory_active is None:
+            logger.warning(
+                'Orphaned running execution %s for conversation %s; marking cancelled',
+                active.id,
+                conversation_id,
+            )
+            await exec_storage.update_status(
+                active.id,
+                'cancelled',
+                error='Execution lost after process restart',
+            )
+            active = None
+            recent = await exec_storage.get_recent(limit=5)
     except Exception as e:
         # Table might not exist yet (migration pending) - log and continue
         # In-memory streams will still work

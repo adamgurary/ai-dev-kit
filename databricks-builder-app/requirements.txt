@@ -56,7 +56,7 @@ chardet==7.4.0.post2
     #   sqlfluff
 charset-normalizer==3.4.7
     # via requests
-claude-agent-sdk==0.1.56
+claude-agent-sdk==0.2.109
     # via databricks-builder-app
 click==8.3.2
     # via

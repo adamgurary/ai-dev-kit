@@ -15,16 +15,16 @@ from databricks_tools_core.identity import with_description_footer
 from ..manifest import register_deleter
 from ..server import mcp
 
-# Singleton manager instance for space management operations
-_manager: Optional[AgentBricksManager] = None
-
 
 def _get_manager() -> AgentBricksManager:
-    """Get or create the singleton AgentBricksManager instance."""
-    global _manager
-    if _manager is None:
-        _manager = AgentBricksManager()
-    return _manager
+    """Build a manager for the current request auth context.
+
+    Must not be cached at module scope: AgentBricksManager captures a
+    WorkspaceClient in __init__ from get_workspace_client(), which reads
+    per-request contextvars (OBO / force_token). A process-global singleton
+    would pin the first caller's credentials for every later request.
+    """
+    return AgentBricksManager()
 
 
 def _delete_genie_resource(resource_id: str) -> None:

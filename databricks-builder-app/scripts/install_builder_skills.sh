@@ -19,6 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
 
 MIN_AITOOLS_CLI_VERSION="1.0.0"
+# CLI ≥1.6 is plugin-first; Builder App needs raw skill files via --skills-only.
+SKILLS_ONLY_CLI_VERSION="1.6.0"
 MLFLOW_REF="${MLFLOW_REF:-main}"
 PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
 SILENT=false
@@ -157,20 +159,38 @@ install_agent_skills() {
   ensure_aitools_cli
   cleanup_stale_agent_skills
 
-  local skills_csv exp_flag="" count
+  local skills_csv exp_flag="" skills_only_flag="" count cli_version=""
   skills_csv=$(echo "$SELECTED_AGENT_B_SKILLS" | tr -s ' ' ',' | sed 's/^,//;s/,$//')
   agent_b_needs_experimental && exp_flag="--experimental"
   count=$(_count $SELECTED_AGENT_B_SKILLS)
 
+  # Plugin-first CLIs install the agent plugin by default; --skills-only forces
+  # raw files into .databricks/aitools/skills so we can copy them for deploy.
+  # Older CLIs reject the flag — only pass it when supported.
+  cli_version=$(databricks --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  if [ -n "$cli_version" ] && version_gte "$cli_version" "$SKILLS_ONLY_CLI_VERSION"; then
+    skills_only_flag="--skills-only"
+  fi
+
   cd "$PROJECT_DIR"
-  if [ "$SILENT" = true ]; then
-    databricks aitools install --scope project --agents claude-code --skills "$skills_csv" $exp_flag -p "$PROFILE" >/dev/null 2>&1 \
-      || die "databricks aitools install failed"
-  else
-    local aitools_out aitools_rc
-    aitools_out=$(databricks aitools install --scope project --agents claude-code --skills "$skills_csv" $exp_flag -p "$PROFILE" 2>&1) && aitools_rc=0 || aitools_rc=$?
-    [ -n "$aitools_out" ] && echo "$aitools_out" | grep -v 'does not support project-scoped skills' || true
-    [ "$aitools_rc" -ne 0 ] && die "databricks aitools install failed"
+  local aitools_out aitools_rc attempt
+  for attempt in 1 2; do
+    aitools_out=$(databricks aitools install --scope project --agents claude-code --skills "$skills_csv" $skills_only_flag $exp_flag -p "$PROFILE" 2>&1) && aitools_rc=0 || aitools_rc=$?
+    if [ "$aitools_rc" -eq 0 ]; then
+      break
+    fi
+    if [ "$attempt" -eq 1 ]; then
+      warn "databricks aitools install failed (attempt 1); retrying once..."
+      sleep 2
+    fi
+  done
+  if [ "$SILENT" != true ] && [ -n "$aitools_out" ]; then
+    echo "$aitools_out" | grep -v 'does not support project-scoped skills' || true
+  fi
+  if [ "$aitools_rc" -ne 0 ]; then
+    # Always surface the CLI error — silent mode used to swallow it entirely.
+    echo "$aitools_out" >&2
+    die "databricks aitools install failed (exit $aitools_rc)"
   fi
   ok "Agent skills ($count) installed via aitools"
 

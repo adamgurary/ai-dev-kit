@@ -27,11 +27,13 @@ dependencies = [
   "greenlet>=3.0.0",
   "psycopg2-binary>=2.9.11",  # For alembic migrations (sync)
   # Claude Agent SDK (successor to claude-code-sdk)
-  "claude-agent-sdk>=0.1.19",
+  "claude-agent-sdk>=0.2.109",
   "anthropic>=0.94.1",
   # In-process Databricks tools (FastMCP wrappers vendored in packages/)
+  # Cap <3.4: 3.4+ splits into fastmcp-slim; uv export drops extras and Apps breaks
+  # with: cannot import name 'FastMCP' from 'fastmcp' (unknown location)
   "mcp>=1.0.0",
-  "fastmcp>=3.2.4,<4",
+  "fastmcp>=3.2.4,<3.4",
   "pyyaml>=6.0",
   # databricks_tools_core and databricks_agent_tools are vendored under packages/
   "requests>=2.31.0",
