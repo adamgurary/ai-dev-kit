@@ -125,8 +125,14 @@ MLFLOW_BASE_URL="https://raw.githubusercontent.com/mlflow/skills"
 AGENT_B_STABLE_FALLBACK="databricks-apps databricks-core databricks-dabs databricks-jobs databricks-lakebase databricks-model-serving databricks-pipelines databricks-serverless-migration databricks-vector-search"
 AGENT_B_EXPERIMENTAL_FALLBACK="databricks-agent-bricks databricks-ai-functions databricks-aibi-dashboards databricks-apps-python databricks-dbsql databricks-docs databricks-execution-compute databricks-genie databricks-iceberg databricks-lakeflow-connect databricks-metric-views databricks-mlflow-evaluation databricks-python-sdk databricks-spark-structured-streaming databricks-synthetic-data-gen databricks-unity-catalog databricks-unstructured-pdf-generation databricks-zerobus-ingest spark-python-data-source"
 # Skills never installed by default (excluded from "all" and profile selections;
-# still installable via an explicit --skills request)
-AGENT_B_EXCLUDED="databricks-execution-compute"
+# still installable via an explicit --skills request). Space-separated; empty = none.
+# NOTE: keep this empty unless a skill genuinely shouldn't ship by default — the
+# native "all" install (install_agent_b_all) runs `databricks aitools install`
+# with no --skills filter, so it does NOT honor this list. Excluding a name here
+# only shrinks the displayed count/selection, making it disagree with what the
+# "all" path actually installs. (databricks-execution-compute was removed: it's a
+# first-class stable skill in the databricks-agent-skills manifest.)
+AGENT_B_EXCLUDED=""
 # Populated by fetch_agent_b_inventory (live or fallback)
 AGENT_B_STABLE=""
 AGENT_B_EXPERIMENTAL=""

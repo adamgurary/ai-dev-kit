@@ -127,8 +127,14 @@ $script:AgentBExperimentalFallback = @(
     "databricks-zerobus-ingest", "spark-python-data-source"
 )
 # Skills never installed by default (excluded from "all" and profile selections;
-# still installable via an explicit --skills request)
-$script:AgentBExcluded = @("databricks-execution-compute")
+# still installable via an explicit --skills request). Empty = none.
+# NOTE: keep this empty unless a skill genuinely shouldn't ship by default -- the
+# native "all" install (Install-AgentBAll) runs `databricks aitools install` with
+# no --skills filter, so it does NOT honor this list. Excluding a name here only
+# shrinks the displayed count/selection, making it disagree with what the "all"
+# path actually installs. (databricks-execution-compute was removed: it's a
+# first-class stable skill in the databricks-agent-skills manifest.)
+$script:AgentBExcluded = @()
 # Populated by Get-AgentBInventory (live or fallback)
 $script:AgentBStable = @()
 $script:AgentBExperimental = @()
