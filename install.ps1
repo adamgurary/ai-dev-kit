@@ -111,20 +111,23 @@ $MlflowBaseUrl = "https://raw.githubusercontent.com/mlflow/skills"
 # Agent skills (from databricks/databricks-agent-skills, installed and managed by
 # `databricks aitools`, which ships with the Databricks CLI v1.0.0+).
 # The live inventory is discovered at runtime via `databricks aitools list -o json`
-# (see Get-AgentBInventory); these lists are the fallback snapshot (v0.2.3).
+# (see Get-AgentBInventory); these lists are the fallback snapshot (v0.2.10),
+# used only when the CLI is unavailable/offline.
 $script:AgentBStableFallback = @(
-    "databricks-apps", "databricks-core", "databricks-dabs", "databricks-jobs",
-    "databricks-lakebase", "databricks-model-serving", "databricks-pipelines",
-    "databricks-serverless-migration", "databricks-vector-search"
-)
-$script:AgentBExperimentalFallback = @(
     "databricks-agent-bricks", "databricks-ai-functions", "databricks-aibi-dashboards",
-    "databricks-apps-python", "databricks-dbsql", "databricks-docs",
-    "databricks-execution-compute", "databricks-genie", "databricks-iceberg", "databricks-lakeflow-connect",
-    "databricks-metric-views", "databricks-mlflow-evaluation", "databricks-python-sdk",
+    "databricks-app-design", "databricks-apps", "databricks-apps-python",
+    "databricks-core", "databricks-dabs", "databricks-data-discovery",
+    "databricks-dbsql", "databricks-docs", "databricks-execution-compute",
+    "databricks-iceberg", "databricks-jobs", "databricks-lakebase",
+    "databricks-lakeflow-connect", "databricks-metric-views", "databricks-ml-training",
+    "databricks-mlflow-evaluation", "databricks-model-serving", "databricks-pipelines",
+    "databricks-python-sdk", "databricks-serverless-migration",
     "databricks-spark-structured-streaming", "databricks-synthetic-data-gen",
     "databricks-unity-catalog", "databricks-unstructured-pdf-generation",
-    "databricks-zerobus-ingest", "spark-python-data-source"
+    "databricks-vector-search", "databricks-zerobus-ingest"
+)
+$script:AgentBExperimentalFallback = @(
+    "databricks-ai-runtime", "databricks-genie", "spark-python-data-source"
 )
 # Skills never installed by default (excluded from "all" and profile selections;
 # still installable via an explicit --skills request). Empty = none.

@@ -121,9 +121,10 @@ MLFLOW_BASE_URL="https://raw.githubusercontent.com/mlflow/skills"
 # Agent skills (from databricks/databricks-agent-skills, installed and managed by
 # `databricks aitools`, which ships with the Databricks CLI v1.0.0+).
 # The live inventory is discovered at runtime via `databricks aitools list -o json`
-# (see fetch_agent_b_inventory); these lists are the fallback snapshot (v0.2.3).
-AGENT_B_STABLE_FALLBACK="databricks-apps databricks-core databricks-dabs databricks-jobs databricks-lakebase databricks-model-serving databricks-pipelines databricks-serverless-migration databricks-vector-search"
-AGENT_B_EXPERIMENTAL_FALLBACK="databricks-agent-bricks databricks-ai-functions databricks-aibi-dashboards databricks-apps-python databricks-dbsql databricks-docs databricks-execution-compute databricks-genie databricks-iceberg databricks-lakeflow-connect databricks-metric-views databricks-mlflow-evaluation databricks-python-sdk databricks-spark-structured-streaming databricks-synthetic-data-gen databricks-unity-catalog databricks-unstructured-pdf-generation databricks-zerobus-ingest spark-python-data-source"
+# (see fetch_agent_b_inventory); these lists are the fallback snapshot (v0.2.10),
+# used only when the CLI is unavailable/offline.
+AGENT_B_STABLE_FALLBACK="databricks-agent-bricks databricks-ai-functions databricks-aibi-dashboards databricks-app-design databricks-apps databricks-apps-python databricks-core databricks-dabs databricks-data-discovery databricks-dbsql databricks-docs databricks-execution-compute databricks-iceberg databricks-jobs databricks-lakebase databricks-lakeflow-connect databricks-metric-views databricks-ml-training databricks-mlflow-evaluation databricks-model-serving databricks-pipelines databricks-python-sdk databricks-serverless-migration databricks-spark-structured-streaming databricks-synthetic-data-gen databricks-unity-catalog databricks-unstructured-pdf-generation databricks-vector-search databricks-zerobus-ingest"
+AGENT_B_EXPERIMENTAL_FALLBACK="databricks-ai-runtime databricks-genie spark-python-data-source"
 # Skills never installed by default (excluded from "all" and profile selections;
 # still installable via an explicit --skills request). Space-separated; empty = none.
 # NOTE: keep this empty unless a skill genuinely shouldn't ship by default — the
