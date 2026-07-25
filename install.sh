@@ -79,6 +79,11 @@ INCLUDE_PRERELEASES="${INCLUDE_PRERELEASES:-0}"
 OWNER="databricks-solutions"
 REPO="ai-dev-kit"
 
+# Literal "~" for display-only path shortening: "${dir/#$HOME/$TILDE}". Held in
+# a variable because bash 5.2+ tilde-expands a bare ~ in the replacement text
+# (turning it straight back into $HOME), while bash 3.2 does not.
+TILDE="~"
+
 # Branch/tag override. DEVKIT_BRANCH is canonical; AIDEVKIT_BRANCH is accepted
 # as an alias so the bash and PowerShell installers honor the same env var.
 # BRANCH_EXPLICIT tracks whether the user asked for a specific ref (vs the
@@ -2064,7 +2069,7 @@ deliver_agent_b_all() {
             echo "$dir|$skill" >> "$manifest"
             made=$((made + 1))
         done
-        [ "$made" -gt 0 ] && ok "Agent skills ($made, copy) → ${dir#$HOME/}"
+        [ "$made" -gt 0 ] && ok "Agent skills ($made, copy) → ${dir/#$HOME/$TILDE}"
     done < <(agent_skill_target_dirs "$base_dir")
 
     rm -rf "$tmp_dir"
@@ -2127,7 +2132,7 @@ deliver_agent_skills() {
             echo "$dir|$skill" >> "$manifest"
             made=$((made + 1))
         done
-        [ "$made" -gt 0 ] && ok "Agent skills ($made, $mode) → ${dir#$HOME/}"
+        [ "$made" -gt 0 ] && ok "Agent skills ($made, $mode) → ${dir/#$HOME/$TILDE}"
     done < <(agent_skill_target_dirs "$base_dir")
 
     [ -n "$tmp_dir" ] && rm -rf "$tmp_dir"
@@ -2484,7 +2489,7 @@ install_skills() {
                     rm -rf "$dest_dir"
                 fi
             done
-            ok "MLflow skills ($mlflow_count, @ ${MLFLOW_RESOLVED_REF}) → ${dir#$HOME/}"
+            ok "MLflow skills ($mlflow_count, @ ${MLFLOW_RESOLVED_REF}) → ${dir/#$HOME/$TILDE}"
         fi
     done
 
