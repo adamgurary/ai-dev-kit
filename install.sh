@@ -138,7 +138,7 @@ AGENT_B_RELEASE=""
 
 # Old skill names → new names (breaking rename when sourcing moved to
 # databricks-agent-skills). Explicit requests for old names are migrated with a warning.
-RENAMED_SKILLS="databricks-bundles:databricks-dabs databricks-spark-declarative-pipelines:databricks-pipelines databricks-config:databricks-core databricks:databricks-core databricks-lakebase-autoscale:databricks-lakebase databricks-lakebase-provisioned:databricks-lakebase"
+RENAMED_SKILLS="databricks-bundles:databricks-dabs databricks-spark-declarative-pipelines:databricks-pipelines databricks-config:databricks-core databricks:databricks-core databricks-lakebase-autoscale:databricks-lakebase databricks-lakebase-provisioned:databricks-lakebase databricks-genie:databricks-genie-agents"
 
 # ─── Skill profiles ──────────────────────────────────────────
 # Core skills always installed regardless of profile selection (all from databricks-agent-skills)

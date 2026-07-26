@@ -145,6 +145,7 @@ $script:RenamedSkills = @{
     "databricks"                             = "databricks-core"
     "databricks-lakebase-autoscale"          = "databricks-lakebase"
     "databricks-lakebase-provisioned"        = "databricks-lakebase"
+    "databricks-genie"                       = "databricks-genie-agents"
 }
 
 # ─── Skill profiles ──────────────────────────────────────────
