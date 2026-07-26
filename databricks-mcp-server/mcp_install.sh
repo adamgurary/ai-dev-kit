@@ -17,7 +17,7 @@
 #   -p, --profile NAME   Databricks config profile to inject (default: DEFAULT)
 #   -g, --global         Register globally (home dir) instead of per-project
 #   --tools LIST         Comma-separated: claude,cursor,copilot,codex,gemini,antigravity,windsurf,opencode,kiro
-#   --venv-dir DIR       Virtual environment location (default: <this dir>/.venv)
+#   --venv-dir DIR       Virtual environment location (default: <repo root>/.venv)
 #   --skip-venv          Skip the setup.sh venv build (assume it already exists)
 #   --silent             Silent mode (no output except errors)
 #   --uninstall          Remove only the 'databricks' MCP entry from each client config
@@ -39,6 +39,7 @@ set -e
 # unified installer's clone-to-~/.ai-dev-kit flow — paths derive from here, the
 # same way setup.sh does.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PARENT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 MCP_ENTRY="$SCRIPT_DIR/run_server.py"
 
 # Defaults (can be overridden by environment variables or command-line arguments)
@@ -48,7 +49,7 @@ SCOPE_EXPLICIT=false
 SILENT="${DEVKIT_SILENT:-false}"
 TOOLS="${DEVKIT_TOOLS:-}"
 USER_TOOLS=""
-VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_DIR="$PARENT_DIR/.venv"
 SKIP_VENV=false
 UNINSTALL=false
 DRY_RUN=false
@@ -91,7 +92,7 @@ while [ $# -gt 0 ]; do
             echo "  -p, --profile NAME   Databricks config profile to inject (default: DEFAULT)"
             echo "  -g, --global         Register globally (home dir) instead of per-project"
             echo "  --tools LIST         Comma-separated: claude,cursor,copilot,codex,gemini,antigravity,windsurf,opencode,kiro"
-            echo "  --venv-dir DIR       Virtual environment location (default: <this dir>/.venv)"
+            echo "  --venv-dir DIR       Virtual environment location (default: <repo root>/.venv)"
             echo "  --skip-venv          Skip the setup.sh venv build (assume it already exists)"
             echo "  --silent             Silent mode (no output except errors)"
             echo "  --uninstall          Remove only the 'databricks' MCP entry from each client config"

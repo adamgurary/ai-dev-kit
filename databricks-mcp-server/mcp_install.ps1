@@ -16,7 +16,7 @@
 #   -Profile NAME     Databricks config profile to inject (default: DEFAULT)
 #   -Global           Register globally (home dir) instead of per-project
 #   -Tools LIST       Comma-separated: claude,cursor,copilot,codex,gemini,antigravity,windsurf,opencode,kiro
-#   -VenvDir DIR      Virtual environment location (default: <this dir>\.venv)
+#   -VenvDir DIR      Virtual environment location (default: <repo root>\.venv)
 #   -SkipVenv         Skip the setup.ps1 venv build (assume it already exists)
 #   -Silent           Silent mode (no output except errors)
 #   -Uninstall        Remove only the 'databricks' MCP entry from each client config
@@ -51,6 +51,7 @@ $ErrorActionPreference = "Stop"
 # unified installer's clone-to-~\.ai-dev-kit flow — paths derive from here, the
 # same way setup.ps1 does.
 $script:ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$script:ParentDir = Split-Path -Parent $script:ScriptDir
 $script:McpEntry  = Join-Path $script:ScriptDir "run_server.py"
 
 # ─── Defaults (env vars mirror the bash installer) ──────────────
@@ -72,7 +73,7 @@ else                 { $script:UserTools = "" }
 $script:Tools = ""
 
 if ($VenvDir)        { $script:VenvDir = $VenvDir }
-else                 { $script:VenvDir = Join-Path $script:ScriptDir ".venv" }
+else                 { $script:VenvDir = Join-Path $script:ParentDir ".venv" }
 
 $script:SkipVenv   = [bool]$SkipVenv
 $script:Uninstall  = [bool]$Uninstall
@@ -91,7 +92,7 @@ if ($Help) {
     Write-Host "  -Profile NAME     Databricks config profile to inject (default: DEFAULT)"
     Write-Host "  -Global           Register globally (home dir) instead of per-project"
     Write-Host "  -Tools LIST       Comma-separated: claude,cursor,copilot,codex,gemini,antigravity,windsurf,opencode,kiro"
-    Write-Host "  -VenvDir DIR      Virtual environment location (default: <this dir>\.venv)"
+    Write-Host "  -VenvDir DIR      Virtual environment location (default: <repo root>\.venv)"
     Write-Host "  -SkipVenv         Skip the setup.ps1 venv build (assume it already exists)"
     Write-Host "  -Silent           Silent mode (no output except errors)"
     Write-Host "  -Uninstall        Remove only the 'databricks' MCP entry from each client config"
