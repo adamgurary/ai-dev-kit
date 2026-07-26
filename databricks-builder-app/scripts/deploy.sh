@@ -392,17 +392,46 @@ echo ""
 # Step 8: Deploy the app
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}[8/${TOTAL_STEPS}] Deploying app...${NC}"
-DEPLOY_OUTPUT=$(databricks apps deploy "$APP_NAME" --source-code-path "$WORKSPACE_PATH" $CLI_ARGS 2>&1)
+# Capture stdout (JSON) only; progress/spinner output stays on stderr so it does
+# not pollute the JSON we parse below.
+DEPLOY_RC=0
+DEPLOY_OUTPUT=$(databricks apps deploy "$APP_NAME" --source-code-path "$WORKSPACE_PATH" $CLI_ARGS --output json) || DEPLOY_RC=$?
 echo "$DEPLOY_OUTPUT"
 
-DEPLOY_STATE=$(echo "$DEPLOY_OUTPUT" | python3 -c "
+DEPLOY_STATE=""
+DEPLOY_PARSE_ERROR=""
+if [ -n "$DEPLOY_OUTPUT" ]; then
+  DEPLOY_STATE=$(printf '%s' "$DEPLOY_OUTPUT" | python3 -c '
 import sys, json
+raw = sys.stdin.read()
 try:
-    data = json.load(sys.stdin)
-    print(data.get('status', {}).get('state', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    data = json.loads(raw)
+except ValueError as exc:
+    sys.stderr.write("deploy output is not valid JSON: %s\n" % exc)
+    sys.exit(1)
+if not isinstance(data, dict):
+    sys.stderr.write("deploy output is not a JSON object\n")
+    sys.exit(1)
+print(data.get("status", {}).get("state", ""))
+' 2>&1) || { DEPLOY_PARSE_ERROR="$DEPLOY_STATE"; DEPLOY_STATE=""; }
+fi
+
+if [ "$DEPLOY_RC" -ne 0 ]; then
+  echo ""
+  echo -e "${RED}Deployment failed: 'databricks apps deploy' exited with status ${DEPLOY_RC}.${NC}"
+  echo -e "  Deploy output: ${DEPLOY_OUTPUT:-<empty>}"
+  echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
+  exit 1
+elif [ -z "$DEPLOY_STATE" ]; then
+  # The CLI reported success but we could not read a state — do not claim success,
+  # and do not hide why the state could not be determined.
+  echo ""
+  echo -e "${YELLOW}⚠${NC} Deploy command succeeded but the deployment state could not be determined."
+  [ -n "$DEPLOY_PARSE_ERROR" ] && echo -e "  Reason: ${DEPLOY_PARSE_ERROR}"
+  echo -e "  Deploy output: ${DEPLOY_OUTPUT:-<empty>}"
+  echo -e "  Verify with: databricks apps get ${APP_NAME} ${CLI_ARGS} --output json"
+  exit 1
+fi
 
 if [ "$DEPLOY_STATE" = "SUCCEEDED" ]; then
   echo ""
@@ -444,7 +473,8 @@ for obj in objects:
   echo ""
 else
   echo ""
-  echo -e "${RED}Deployment may have issues. Check the output above.${NC}"
+  echo -e "${RED}Deployment did not succeed (state: ${DEPLOY_STATE}).${NC}"
+  echo -e "  Deploy output: ${DEPLOY_OUTPUT:-<empty>}"
   echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
   exit 1
 fi
