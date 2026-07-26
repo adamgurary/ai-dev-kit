@@ -13,7 +13,7 @@
 #   .\databricks-mcp-server\setup.ps1 [OPTIONS]
 #
 # Options:
-#   -VenvDir DIR   Location for the virtual environment (default: <this dir>\.venv)
+#   -VenvDir DIR   Location for the virtual environment (default: <repo root>\.venv)
 #   -Python VER    Python version to request from uv (default: 3.11)
 #   -Quiet         Suppress progress output (errors still print)
 #   -Help          Show this help
@@ -26,7 +26,9 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ParentDir = Split-Path -Parent $ScriptDir
 $ToolsCoreDir = Join-Path $ParentDir "databricks-tools-core"
 
-$VenvDir = Join-Path $ScriptDir ".venv"
+# The venv lives at the repo root (the parent of this directory), matching the
+# paths the README documents. -VenvDir overrides this.
+$VenvDir = Join-Path $ParentDir ".venv"
 $PythonVersion = "3.11"
 $Quiet = $false
 
@@ -41,7 +43,7 @@ while ($i -lt $args.Count) {
             Write-Host ""
             Write-Host "Usage: .\databricks-mcp-server\setup.ps1 [OPTIONS]"
             Write-Host ""
-            Write-Host "  -VenvDir DIR   Virtual environment location (default: <script dir>\.venv)"
+            Write-Host "  -VenvDir DIR   Virtual environment location (default: <repo root>\.venv)"
             Write-Host "  -Python VER    Python version for uv (default: 3.11)"
             Write-Host "  -Quiet         Suppress progress output"
             Write-Host "  -Help          Show this help"

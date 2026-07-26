@@ -15,7 +15,7 @@
 #   bash databricks-mcp-server/setup.sh [OPTIONS]
 #
 # Options:
-#   --venv-dir DIR   Location for the virtual environment (default: <this dir>/.venv)
+#   --venv-dir DIR   Location for the virtual environment (default: <repo root>/.venv)
 #   --python VER     Python version to request from uv (default: 3.11)
 #   --quiet          Suppress progress output (errors still print)
 #   -h, --help       Show this help
@@ -28,7 +28,9 @@ PARENT_DIR="$(dirname "${SCRIPT_DIR}")"
 TOOLS_CORE_DIR="${PARENT_DIR}/databricks-tools-core"
 
 # Defaults
-VENV_DIR="${SCRIPT_DIR}/.venv"
+# The venv lives at the repo root (the parent of this directory), matching the
+# paths the README documents. --venv-dir overrides this.
+VENV_DIR="${PARENT_DIR}/.venv"
 PYTHON_VERSION="3.11"
 QUIET=false
 
@@ -45,7 +47,7 @@ while [ $# -gt 0 ]; do
             echo ""
             echo "Usage: bash databricks-mcp-server/setup.sh [OPTIONS]"
             echo ""
-            echo "  --venv-dir DIR   Virtual environment location (default: <script dir>/.venv)"
+            echo "  --venv-dir DIR   Virtual environment location (default: <repo root>/.venv)"
             echo "  --python VER     Python version for uv (default: 3.11)"
             echo "  --quiet          Suppress progress output"
             echo "  -h, --help       Show this help"
