@@ -30,8 +30,8 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                   databricks-tools-core                     │
 │                                                             │
-│  sql/         compute/       jobs/         pipelines/       │
-│  └── execute  └── run_code   └── run/wait  └── create/run   │
+│  sql/  compute/  jobs/  unity_catalog/  vector_search/      │
+│  lakebase/  spark_declarative_pipelines/  serving/  …       │
 └──────────────────────────────┬──────────────────────────────┘
                                │ Databricks SDK
                                ▼
