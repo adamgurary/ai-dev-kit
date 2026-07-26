@@ -26,17 +26,30 @@ git clone https://github.com/databricks-solutions/ai-dev-kit.git
 cd ai-dev-kit
 ```
 
-### Step 2: Install the server
+### Step 2: Install the server plus configurations
+**Recommended:** use the bundled installer (Option A) to build the venv *and* register the server with your MCP clients in one step. It wraps `setup.sh`/`setup.ps1` (the venv build) and writes the client config for you, prompting for scope, which clients to configure, and which Databricks profile to inject.
+
+#### Option A - mcp_install.sh
 
 The MCP server depends on the `databricks-tools-core` library, which also lives in this repo. Install both as editable packages into a virtual environment.
 
-You can do this in one shot with the setup script, which creates a `.venv`, installs both packages, verifies the import, and prints ready-to-paste client config:
+You can do this in one shot with the installer script, which creates a `.venv`, installs both packages, verifies the import, and creates your client configs:
 
 ```bash
-./databricks-mcp-server/setup.sh
+# macOS / Linux
+./databricks-mcp-server/mcp_install.sh
+
+# Windows (PowerShell)
+.\databricks-mcp-server\mcp_install.ps1
 ```
 
-Or run the steps manually:
+It supports Claude Code, Cursor, GitHub Copilot, OpenAI Codex, Gemini CLI, Antigravity, Windsurf, OpenCode, and Kiro, and can be reverted with `--uninstall` (`-Uninstall` on PowerShell).
+```bash
+./databricks-mcp-server/mcp_install.sh
+```
+
+#### Option B - manual
+Run the steps manually:
 
 ```bash
 # Create and activate a virtual environment
@@ -53,21 +66,7 @@ Verify the server imports cleanly:
 python -c "import databricks_mcp_server; print('OK')"
 ```
 
-### Step 3: Configure your MCP client
-
-**Recommended:** use the bundled installer to build the venv *and* register the server with your MCP clients in one step. It wraps `setup.sh`/`setup.ps1` (the venv build) and writes the client config for you, prompting for scope, which clients to configure, and which Databricks profile to inject.
-
-```bash
-# macOS / Linux
-./databricks-mcp-server/mcp_install.sh
-
-# Windows (PowerShell)
-.\databricks-mcp-server\mcp_install.ps1
-```
-
-It supports Claude Code, Cursor, GitHub Copilot, OpenAI Codex, Gemini CLI, Antigravity, Windsurf, OpenCode, and Kiro, and can be reverted with `--uninstall` (`-Uninstall` on PowerShell).
-
-**Manual configuration (fallback):** if you'd rather edit the config yourself, point your MCP client at the server's `run_server.py`. Use the Python interpreter from the `.venv` you built in Step 2 (replace `/path/to/ai-dev-kit` with the absolute path where you cloned the repo).
+Then, configure your MCP client:
 
 **Claude Code** — add to your project's `.mcp.json` (create the file if it doesn't exist):
 
