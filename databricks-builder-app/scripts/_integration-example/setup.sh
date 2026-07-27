@@ -38,18 +38,19 @@ else
     pip install -r requirements.txt
 fi
 
-# Install skills
+# Install skills via builder app installer (requires Databricks CLI v1.0.0+)
 echo ""
-echo "Setting up skills directory..."
-SKILLS_DIR="$SCRIPT_DIR/.claude/skills"
-mkdir -p "$SKILLS_DIR"
-
-# The in-repo bundled skills snapshot that this example used to copy from has
-# been removed from the repo (the historical copies still exist on the older
-# release v0.1.14). Install skills into "$SKILLS_DIR" via `databricks aitools
-# install` or install_skills.sh from the v0.1.14 release.
-echo "  Skills are no longer bundled in this repo — install them into"
-echo "  $SKILLS_DIR (e.g. via 'databricks aitools install')."
+echo "Installing skills..."
+BUILDER_ROOT="$SCRIPT_DIR/../.."
+if [ -f "$BUILDER_ROOT/scripts/install_builder_skills.sh" ]; then
+  PROJECT_DIR="$SCRIPT_DIR" bash "$BUILDER_ROOT/scripts/install_builder_skills.sh" || {
+    echo "Error: install_builder_skills.sh failed — ensure Databricks CLI v1.0.0+ is installed" >&2
+    exit 1
+  }
+else
+  echo "Error: install_builder_skills.sh not found" >&2
+  exit 1
+fi
 
 # Copy .env.example to .env if it doesn't exist
 if [ ! -f ".env" ]; then
