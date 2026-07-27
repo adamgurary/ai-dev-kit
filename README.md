@@ -362,8 +362,6 @@ Import [`install_genie_code_skills.py`](install_genie_code_skills.py)
 into your workspace as a notebook and run it. It downloads skills from GitHub and uploads them via the
 Databricks SDK. Works on any compute, including serverless.
 
-See [databricks-skills/README.md](databricks-skills/README.md) for details.
-
 **Customizing skills:** after upload, skills live under
 `/Workspace/Users/<your_user_name>/.assistant/skills`. You can modify or remove skills there, or add
 your own skill folders (each with a `SKILL.md`) that Genie Code will use automatically in any session.
@@ -391,10 +389,11 @@ The AI Dev Kit ships as four composable pieces — install the whole kit, or pic
 
 | Component | Description |
 |-----------|-------------|
+| [`Skills`] | Skills that teach Databricks patterns (installed via `databricks aitools` |
+| [`databricks-builder-app/`](databricks-builder-app/) | Full-stack web app with Cl
+aude Code integration |
 | [`databricks-tools-core/`](databricks-tools-core/) | Python library with high-level Databricks functions |
 | [`databricks-mcp-server/`](databricks-mcp-server/) | Standalone MCP server exposing 40+ Databricks tools for AI assistants (installs independently of skills) |
-| [`databricks-skills/`](databricks-skills/) | Skills that teach Databricks patterns (installed via `databricks aitools`; bundled copies are deprecated) |
-| [`databricks-builder-app/`](databricks-builder-app/) | Full-stack web app with Claude Code integration |
 
 ---
 
