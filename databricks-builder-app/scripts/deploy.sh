@@ -466,18 +466,34 @@ if [ -z "$DEPLOY_STATE" ] || [ "$DEPLOY_STATE" != "SUCCEEDED" ]; then
     VERIFY_OUT=$(verify_deploy_state "$APP_NAME" "$DEPLOY_ID" $CLI_ARGS) || true
     case "$VERIFY_OUT" in
       OK$'\t'*)
-        DEPLOY_STATE="${VERIFY_OUT#OK	}"
+        DEPLOY_STATE=$(printf '%s' "$VERIFY_OUT" | awk -F'\t' '{print $2}')
+        ;;
+      NO_STATE$'\t'*)
+        VERIFY_ACTIVE_ID=$(printf '%s' "$VERIFY_OUT" | awk -F'\t' '{print $2}')
+        echo -e "  ${YELLOW}!${NC} active_deployment ${VERIFY_ACTIVE_ID} matches submitted id but has no status.state yet; ignoring"
         ;;
       MISMATCH$'\t'*)
         VERIFY_ACTIVE_ID=$(printf '%s' "$VERIFY_OUT" | awk -F'\t' '{print $2}')
         echo -e "  ${YELLOW}!${NC} active_deployment (${VERIFY_ACTIVE_ID:-none}) is not the submitted deployment ${DEPLOY_ID}; ignoring its state"
         ;;
       PARSE_ERROR$'\t'*)
-        echo -e "  ${YELLOW}!${NC} Could not verify deployment via apps get: ${VERIFY_OUT#PARSE_ERROR	}"
+        VERIFY_ERR=$(printf '%s' "$VERIFY_OUT" | awk -F'\t' '{print substr($0, index($0,$2))}')
+        echo -e "  ${YELLOW}!${NC} Could not verify deployment via apps get: ${VERIFY_ERR}"
         ;;
     esac
   fi
 fi
+
+# A failure confirmed via apps get (id match + FAILED) should be reported as such,
+# not understated as "could not confirm SUCCEEDED".
+case "$DEPLOY_STATE" in
+  FAILED|CANCELLED|CANCELED|STOPPED)
+    echo ""
+    echo -e "${RED}Deployment finished with state '${DEPLOY_STATE}'.${NC}"
+    echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
+    exit 1
+    ;;
+esac
 
 if [ "$DEPLOY_STATE" = "SUCCEEDED" ]; then
   echo ""

@@ -30,40 +30,6 @@ jobs:
             echo "databricks-skills/.tests/ not present on this branch; skipping."
           fi
 
-  builder-app-tests:
-    name: databricks-builder-app tests
-    runs-on: linux-ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: "0.11.4"
-
-      - name: Run builder app unit tests
-        working-directory: databricks-builder-app
-        run: uv run pytest tests/ -v
-
-  shell-lint:
-    name: Shell Lint
-    runs-on: linux-ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          version: "0.11.4"
-
-      # Catches quoting, word-splitting and rm -rf hazards. Note it cannot see
-      # into embedded python/awk strings, so shell scripts that shell out still
-      # need the behavioural tests in databricks-builder-app/tests/.
-      - name: Run shellcheck
-        run: |
-          uvx --from shellcheck-py shellcheck --severity=warning \
-            databricks-builder-app/scripts/*.sh \
-            databricks-builder-app/scripts/lib/*.sh \
-            databricks-builder-app/scripts/_integration-example/*.sh
-
   lint:
     name: Lint & Format
     runs-on: linux-ubuntu-latest

@@ -43,8 +43,9 @@ print("OK\t" + state + "\t" + deploy_id)
 # Usage: verify_deploy_state <app_name> <submitted_id> [cli args...]
 #
 # Emits:
-#   OK<TAB><state>
-#   MISMATCH<TAB><active_id><TAB><state>
+#   OK<TAB><state>                         — id match + non-empty state
+#   NO_STATE<TAB><active_id>               — id match but status.state empty/null
+#   MISMATCH<TAB><active_id><TAB><state>   — different deployment (or none)
 #   PARSE_ERROR<TAB><message>
 verify_deploy_state() {
   local app_name="${1:-}" submitted="${2:-}"
@@ -53,6 +54,8 @@ verify_deploy_state() {
   # The submitted id is passed as argv, not as a `VAR=value cmd` prefix: such a
   # prefix binds only to the left-hand side of a pipeline, so the python3 on the
   # right would never observe it and every comparison would silently fail.
+  # stderr is merged into the pipe's error path via the outer 2>/dev/null so a
+  # python traceback cannot leak into VERIFY_OUT (same posture as parse helpers).
   databricks apps get "$app_name" "$@" --output json 2>/dev/null | python3 -c '
 import sys, json
 
@@ -66,8 +69,11 @@ except Exception as exc:
 active = data.get("active_deployment") or {}
 active_id = active.get("deployment_id") or ""
 state = (active.get("status") or {}).get("state") or ""
-if submitted and active_id == submitted and state:
-    print("OK\t" + state)
+if submitted and active_id == submitted:
+    if state:
+        print("OK\t" + state)
+    else:
+        print("NO_STATE\t" + active_id)
 else:
     print("MISMATCH\t" + active_id + "\t" + state)
 ' "$submitted" 2>/dev/null || printf 'PARSE_ERROR\tapps get failed\n'

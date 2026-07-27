@@ -90,6 +90,18 @@ def test_matching_id_resolves_to_exit_zero_path(bin_dir: Path) -> None:
     assert _run(snippet, bin_dir) == 'EXIT_ZERO'
 
 
+def test_matching_id_with_empty_state_is_no_state(bin_dir: Path) -> None:
+    """Id match with a null/empty status must not claim MISMATCH (misleading)."""
+    _write_databricks_stub(
+        bin_dir,
+        json.dumps({'active_deployment': {'deployment_id': SUBMITTED_ID, 'status': {}}}),
+    )
+
+    out = _run(f'verify_deploy_state my-app {SUBMITTED_ID}', bin_dir)
+
+    assert out == f'NO_STATE\t{SUBMITTED_ID}'
+
+
 def test_non_matching_deployment_id_is_rejected(bin_dir: Path) -> None:
     """A previous deployment's SUCCEEDED must never be borrowed."""
     _write_databricks_stub(bin_dir, _active_payload(OTHER_ID, 'SUCCEEDED'))
