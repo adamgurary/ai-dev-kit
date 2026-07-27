@@ -31,7 +31,10 @@ cd /path/to/your/project/_integration-example
 ./setup.sh
 ```
 
-This creates a virtual environment, installs dependencies, and sets up skills.
+This creates a virtual environment, installs dependencies, and installs skills
+via `install_builder_skills.sh`. Skill install failures abort setup (no silent
+empty-skills success). To continue without MLflow skills when GitHub is
+unreachable, set `ALLOW_EMPTY_MLFLOW_SKILLS=1`.
 
 ### 3. Configure credentials
 
@@ -207,7 +210,10 @@ Check that your `DATABRICKS_HOST` doesn't have a trailing slash and your token i
 
 Verify `databricks -v`, confirm the request host/token are present, and inspect
 the streamed `Bash` result. Long-running operations should use the polling
-commands documented by the relevant skill.
+commands documented by the relevant skill. On Databricks Apps, workspace CLI
+auth must come from `X-Forwarded-Access-Token` (or an explicit
+`target_databricks_token` for cross-workspace calls) — the agent will not fall
+back to the app service principal.
 
 ## File Structure
 

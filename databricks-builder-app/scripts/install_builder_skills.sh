@@ -21,10 +21,11 @@ PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
 MIN_AITOOLS_CLI_VERSION="1.0.0"
 # CLI ≥1.6 is plugin-first; Builder App needs raw skill files via --skills-only.
 SKILLS_ONLY_CLI_VERSION="1.6.0"
-MLFLOW_REF="${MLFLOW_REF:-main}"
+MLFLOW_REF="${MLFLOW_REF:-main}"  # Override with a tag/commit for reproducible installs
 PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
 SILENT=false
 INSTALL_EXPERIMENTAL=true
+# Set ALLOW_EMPTY_MLFLOW_SKILLS=1 to allow deploy/setup when MLflow fetch returns zero skills.
 
 # MLflow skills (mlflow/skills repo)
 MLFLOW_SKILLS="agent-evaluation analyze-mlflow-chat-session analyze-mlflow-trace instrumenting-with-mlflow-tracing mlflow-onboarding querying-mlflow-metrics retrieving-mlflow-traces searching-mlflow-docs"
@@ -118,7 +119,7 @@ resolve_all_agent_skills() {
 ensure_aitools_cli() {
   local cli_version=""
   if command -v databricks >/dev/null 2>&1; then
-    cli_version=$(databricks --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    cli_version=$(databricks --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
   fi
   if [ -n "$cli_version" ] && version_gte "$cli_version" "$MIN_AITOOLS_CLI_VERSION"; then
     return 0
@@ -168,7 +169,7 @@ install_agent_skills() {
   # Plugin-first CLIs install the agent plugin by default; --skills-only forces
   # raw files into .databricks/aitools/skills so we can copy them for deploy.
   # Older CLIs reject the flag — only pass it when supported.
-  cli_version=$(databricks --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  cli_version=$(databricks --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
   if [ -n "$cli_version" ] && version_gte "$cli_version" "$SKILLS_ONLY_CLI_VERSION"; then
     skills_only_flag="--skills-only"
   fi
@@ -231,7 +232,16 @@ install_mlflow_skills() {
       warn "Could not fetch MLflow skill: $skill"
     fi
   done
-  ok "MLflow skills ($count) → .claude/skills/"
+  if [ "$count" -eq 0 ]; then
+    if [ "${ALLOW_EMPTY_MLFLOW_SKILLS:-0}" = "1" ]; then
+      warn "No MLflow skills installed (ALLOW_EMPTY_MLFLOW_SKILLS=1 override)"
+    else
+      die "No MLflow skills installed from ${mlflow_raw_url}.
+ Set ALLOW_EMPTY_MLFLOW_SKILLS=1 to continue without them, or pin MLFLOW_REF to a reachable ref."
+    fi
+  else
+    ok "MLflow skills ($count) → .claude/skills/"
+  fi
 }
 
 # ─── Main ─────────────────────────────────────────────────────

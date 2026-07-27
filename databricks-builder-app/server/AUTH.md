@@ -37,7 +37,8 @@ Databricks MCP tools are registered.
   `DATABRICKS_CLIENT_ID` / `SECRET` are scrubbed so the CLI does not run as the
   app service principal. If Apps omit `X-Forwarded-Access-Token`, `invoke_agent`
   fails closed with 401 — it does **not** fall back to the FMAPI token or the
-  ambient app SP.
+  ambient app SP. Cross-workspace calls require both `target_databricks_host`
+  and `target_databricks_token`.
 - **App API helpers** (clusters/warehouses list): still use
   `databricks_tools_core.auth` contextvars where needed.
 

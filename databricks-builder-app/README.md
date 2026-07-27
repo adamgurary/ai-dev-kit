@@ -123,7 +123,10 @@ The app supports multi-user authentication using per-request credentials:
 3. **CLI / SDK uses the request identity** - `databricks` commands and
    `WorkspaceClient()` inherit the same project-scoped environment. On Apps,
    inherited service-principal variables are cleared so unified auth cannot
-   select the app identity ahead of the forwarded user token.
+   select the app identity ahead of the forwarded user token. If Apps omit
+   `X-Forwarded-Access-Token`, `invoke_agent` fails closed with **401** rather
+   than falling back to the FMAPI token or ambient app SP. Cross-workspace
+   calls must provide both `target_databricks_host` and `target_databricks_token`.
 
 This ensures each user's requests use their own Databricks credentials, enabling proper access control and audit logging.
 
@@ -561,6 +564,9 @@ See the [Databricks MLflow Tracing documentation](https://docs.databricks.com/aw
 | `permission denied for table` | PostgreSQL grants missing | Re-run deploy — Step 6 is idempotent |
 | `relation does not exist` | Migrations didn't run | Redeploy the app to trigger migrations |
 | App shows blank page | Check logs: `databricks apps logs <app-name>` | Usually a package install error — check requirements.txt |
+| Deploy exits despite Apps UI looking fine | Status parse / id mismatch | Deploy requires `--output json` SUCCEEDED for **this** deployment id; check script output |
+| `No MLflow skills installed` | GitHub fetch of mlflow/skills failed | Retry, set `MLFLOW_REF=<tag>`, or `ALLOW_EMPTY_MLFLOW_SKILLS=1` for an intentional empty set |
+| `401` / no workspace access token | Apps omitted `X-Forwarded-Access-Token` | Fail-closed by design — do not run CLI as the app SP; fix Apps auth headers |
 
 ## Embedding in Other Apps
 

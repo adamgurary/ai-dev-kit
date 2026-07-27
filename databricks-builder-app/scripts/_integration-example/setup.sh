@@ -44,10 +44,12 @@ echo "Installing skills..."
 BUILDER_ROOT="$SCRIPT_DIR/../.."
 if [ -f "$BUILDER_ROOT/scripts/install_builder_skills.sh" ]; then
   PROJECT_DIR="$SCRIPT_DIR" bash "$BUILDER_ROOT/scripts/install_builder_skills.sh" || {
-    echo "Warning: install_builder_skills.sh failed — ensure Databricks CLI v1.0.0+ is installed"
+    echo "Error: install_builder_skills.sh failed — ensure Databricks CLI v1.0.0+ is installed" >&2
+    exit 1
   }
 else
-  echo "Warning: install_builder_skills.sh not found"
+  echo "Error: install_builder_skills.sh not found" >&2
+  exit 1
 fi
 
 # Copy .env.example to .env if it doesn't exist

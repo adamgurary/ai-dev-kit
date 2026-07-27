@@ -384,7 +384,18 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}[7/${TOTAL_STEPS}] Uploading to Databricks workspace...${NC}"
 echo "  Target: ${WORKSPACE_PATH}"
-databricks workspace import-dir "$STAGING_DIR" "$WORKSPACE_PATH" --overwrite $CLI_ARGS 2>&1 | tail -5
+# Capture upload output without masking import-dir failures behind `tail`.
+set +e
+UPLOAD_OUT=$(databricks workspace import-dir "$STAGING_DIR" "$WORKSPACE_PATH" --overwrite $CLI_ARGS 2>&1)
+UPLOAD_RC=$?
+set -e
+if [ -n "$UPLOAD_OUT" ]; then
+  echo "$UPLOAD_OUT" | tail -5
+fi
+if [ "$UPLOAD_RC" -ne 0 ]; then
+  echo -e "${RED}Workspace upload failed (exit ${UPLOAD_RC}).${NC}"
+  exit 1
+fi
 echo -e "  ${GREEN}✓${NC} Upload complete"
 echo ""
 
@@ -399,11 +410,22 @@ DEPLOY_JSON=$(databricks apps deploy "$APP_NAME" --source-code-path "$WORKSPACE_
 DEPLOY_RC=$?
 set -e
 
+if [ "$DEPLOY_RC" -ne 0 ]; then
+  echo ""
+  if [ -n "$DEPLOY_JSON" ]; then
+    echo "$DEPLOY_JSON" | python3 -m json.tool 2>/dev/null || echo "$DEPLOY_JSON"
+  fi
+  echo -e "${RED}Deployment command failed (exit ${DEPLOY_RC}).${NC}"
+  echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
+  exit 1
+fi
+
 if [ -n "$DEPLOY_JSON" ]; then
   echo "$DEPLOY_JSON" | python3 -m json.tool 2>/dev/null || echo "$DEPLOY_JSON"
 fi
 
 DEPLOY_STATE=""
+DEPLOY_ID=""
 DEPLOY_PARSE_ERR=""
 if [ -n "$DEPLOY_JSON" ]; then
   # Keep parse failures visible — never swallow into an empty "failed" state.
@@ -416,13 +438,15 @@ except Exception as e:
     print('PARSE_ERROR\t' + str(e))
     sys.exit(0)
 state = ''
+deploy_id = ''
 if isinstance(data, dict):
     status = data.get('status') or {}
     if isinstance(status, dict):
         state = status.get('state') or ''
     if not state:
         state = data.get('state') or ''
-print('OK\t' + state)
+    deploy_id = data.get('deployment_id') or ''
+print('OK\t' + state + '\t' + deploy_id)
 ") || true
   case "$PARSE_OUT" in
     PARSE_ERROR$'\t'*)
@@ -430,28 +454,60 @@ print('OK\t' + state)
       echo -e "  ${YELLOW}!${NC} Could not parse deploy JSON: ${DEPLOY_PARSE_ERR}"
       ;;
     OK$'\t'*)
-      DEPLOY_STATE="${PARSE_OUT#OK	}"
+      # OK\tSTATE\tDEPLOYMENT_ID
+      DEPLOY_STATE=$(printf '%s' "$PARSE_OUT" | awk -F'\t' '{print $2}')
+      DEPLOY_ID=$(printf '%s' "$PARSE_OUT" | awk -F'\t' '{print $3}')
       ;;
   esac
 fi
 
-# If deploy stdout was incomplete/unparsed, verify via apps get (always JSON).
-if [ -z "$DEPLOY_STATE" ] || [ "$DEPLOY_STATE" != "SUCCEEDED" ]; then
-  VERIFY_STATE=$(databricks apps get "$APP_NAME" $CLI_ARGS --output json | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('active_deployment', {}).get('status', {}).get('state', ''))
-") || true
-  if [ -n "$VERIFY_STATE" ]; then
-    DEPLOY_STATE="$VERIFY_STATE"
-  fi
-fi
+# Never upgrade a known-bad deploy state via apps get (active_deployment is the
+# last successfully activated deployment, not necessarily this submission).
+case "$DEPLOY_STATE" in
+  FAILED|CANCELLED|CANCELED|STOPPED)
+    echo ""
+    echo -e "${RED}Deployment finished with state '${DEPLOY_STATE}'.${NC}"
+    echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
+    exit 1
+    ;;
+esac
 
-if [ "$DEPLOY_RC" -ne 0 ]; then
-  echo ""
-  echo -e "${RED}Deployment command failed (exit ${DEPLOY_RC}).${NC}"
-  echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
-  exit 1
+# Fallback only when state is empty/in-progress AND we have a submitted id.
+# Accept SUCCEEDED from apps get only when deployment_id matches.
+if [ -z "$DEPLOY_STATE" ] || [ "$DEPLOY_STATE" != "SUCCEEDED" ]; then
+  if [ -z "$DEPLOY_ID" ]; then
+    echo -e "  ${YELLOW}!${NC} No deployment_id in deploy response; refusing to trust active_deployment"
+  else
+    VERIFY_OUT=$(
+      DEPLOY_ID="$DEPLOY_ID" databricks apps get "$APP_NAME" $CLI_ARGS --output json 2>/dev/null | python3 -c "
+import os, sys, json
+submitted = os.environ.get('DEPLOY_ID', '')
+try:
+    data = json.load(sys.stdin)
+except Exception as e:
+    print('PARSE_ERROR\t' + str(e))
+    sys.exit(0)
+active = data.get('active_deployment') or {}
+active_id = active.get('deployment_id') or ''
+state = (active.get('status') or {}).get('state') or ''
+if submitted and active_id == submitted and state:
+    print('OK\t' + state)
+else:
+    print('MISMATCH\t' + active_id + '\t' + state)
+" 2>/dev/null || echo "PARSE_ERROR	apps get failed"
+    )
+    case "$VERIFY_OUT" in
+      OK$'\t'*)
+        DEPLOY_STATE="${VERIFY_OUT#OK	}"
+        ;;
+      MISMATCH$'\t'*)
+        echo -e "  ${YELLOW}!${NC} active_deployment does not match submitted id ${DEPLOY_ID}; ignoring"
+        ;;
+      PARSE_ERROR$'\t'*)
+        echo -e "  ${YELLOW}!${NC} Could not verify deployment via apps get: ${VERIFY_OUT#PARSE_ERROR	}"
+        ;;
+    esac
+  fi
 fi
 
 if [ "$DEPLOY_STATE" = "SUCCEEDED" ]; then

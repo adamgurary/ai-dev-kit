@@ -22,11 +22,11 @@ from pydantic import BaseModel
 from ..services.active_stream import get_stream_manager
 from ..services.agent import get_project_directory, get_project_directory_async, stream_agent_response
 from ..services.backup_manager import mark_for_backup
-from ..services.storage import ConversationStorage, ProjectStorage
-from ..services.title_generator import generate_title_async
-from ..services.project_access import require_stream_owner
 from ..services.fmapi_auth import is_deployed_mode
-from ..services.user import get_current_user, get_current_token, get_fmapi_token, get_workspace_url
+from ..services.project_access import require_owned_project, require_stream_owner
+from ..services.storage import ConversationStorage
+from ..services.title_generator import generate_title_async
+from ..services.user import get_current_token, get_fmapi_token, get_workspace_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -127,14 +127,23 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
         f'Invoking agent for project: {body.project_id}, conversation: {body.conversation_id}'
     )
 
-    # Get current user and separate model/tool credentials.
-    user_email = await get_current_user(request)
+    # Validate project ownership first (UUID → 400, missing → 404).
+    user_email, _project = await require_owned_project(request, body.project_id)
     fmapi_token = await get_fmapi_token(request)
     workspace_token = await get_current_token(request)
     workspace_url = get_workspace_url()
 
     # FMAPI (Claude API) always uses the Builder App's own workspace
     fmapi_host = workspace_url
+
+    # Cross-workspace CLI auth requires an explicit target token. Pairing the
+    # builder-app forwarded token with a foreign host produces opaque CLI
+    # failures of the same class as the FMAPI fallback we removed.
+    if body.target_databricks_host and not body.target_databricks_token:
+        raise HTTPException(
+            status_code=400,
+            detail='target_databricks_token is required when target_databricks_host is set',
+        )
 
     # Skills/CLI operations target the caller-specified workspace when present.
     # Prefer the Apps proxy's request-scoped user token. Never fall back to the
@@ -153,13 +162,6 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
                 'to the app service principal.'
             ),
         )
-
-    # Verify project exists and belongs to user
-    project_storage = ProjectStorage(user_email)
-    project = await project_storage.get(body.project_id)
-    if not project:
-        logger.error(f'Project not found: {body.project_id}')
-        raise HTTPException(status_code=404, detail=f'Project not found: {body.project_id}')
 
     # Read enabled skills from project filesystem (not DB). Await restore so
     # Claude transcripts are on disk before session resume.
@@ -581,13 +583,8 @@ async def stop_stream(request: Request, execution_id: str):
 @router.get('/projects/{project_id}/files')
 async def list_project_files(request: Request, project_id: str):
     """List files in a project directory."""
-    user_email = await get_current_user(request)
-
-    # Verify project exists and belongs to user
-    project_storage = ProjectStorage(user_email)
-    project = await project_storage.get(project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail=f'Project {project_id} not found')
+    # Validate ownership (UUID → 400, missing → 404) for parity with invoke_agent.
+    await require_owned_project(request, project_id)
 
     # Get project directory and list files
     project_dir = get_project_directory(project_id)
@@ -621,16 +618,8 @@ async def get_conversation_executions(
     """
     from ..services.storage import ExecutionStorage
 
-    user_email = await get_current_user(request)
-
-    # Verify project exists and belongs to user
-    project_storage = ProjectStorage(user_email)
-    project = await project_storage.get(project_id)
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail=f'Project {project_id} not found'
-        )
+    # Validate ownership (UUID → 400, missing → 404) for parity with invoke_agent.
+    user_email, _project = await require_owned_project(request, project_id)
 
     # First check in-memory streams for this conversation (always works)
     stream_manager = get_stream_manager()
