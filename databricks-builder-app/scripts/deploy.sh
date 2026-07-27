@@ -18,14 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(dirname "$PROJECT_DIR")"
 
-# Repo-local bundled (frozen) Databricks skills snapshot.  The bundled skill
-# copies moved to DEPRECATED-databricks-skills/ at the repo root; older checkouts
-# still keep them directly under databricks-skills/.  Prefer the new location,
-# fall back to the legacy one so this works before and after the move.
-SKILLS_SNAPSHOT_DIR="$REPO_ROOT/DEPRECATED-databricks-skills"
-if [ ! -d "$SKILLS_SNAPSHOT_DIR" ]; then
-  SKILLS_SNAPSHOT_DIR="$REPO_ROOT/databricks-skills"
-fi
+# The in-repo bundled (frozen) Databricks skills snapshot has been removed from
+# this repo; the historical copies still exist on the older release v0.1.14.
+# Skills are now sourced entirely via install_skills.sh.
 
 # install_skills.sh (adds MLflow skills fetched from github.com/mlflow/skills).
 INSTALL_SKILLS_SCRIPT="$REPO_ROOT/databricks-skills/install_skills.sh"
@@ -251,43 +246,23 @@ if [ "$SKIP_SKILLS" = true ] && [ -d "$SKILLS_CACHE_DIR" ] && [ "$(ls -A "$SKILL
 else
   mkdir -p "$STAGING_DIR/skills"
 
-  # 1. Ship the bundled (frozen) Databricks skills snapshot.  These copies live
-  #    in-repo and work fully offline, so they are the authoritative source for
-  #    Databricks skills regardless of network access.
-  if [ -d "$SKILLS_SNAPSHOT_DIR" ]; then
-    echo "  Bundling frozen skills snapshot from ${SKILLS_SNAPSHOT_DIR}..."
-    for skill_dir in "$SKILLS_SNAPSHOT_DIR"/*/; do
-      [ -d "$skill_dir" ] || continue
-      [ -f "$skill_dir/SKILL.md" ] || continue
-      skill_name=$(basename "$skill_dir")
-      # Skip non-skill scaffolding (TEMPLATE, dotfiles; deprecated kept defensively).
-      case "$skill_name" in TEMPLATE|deprecated|.*) continue ;; esac
-      mkdir -p "$STAGING_DIR/skills/$skill_name"
-      cp -r "$skill_dir"* "$STAGING_DIR/skills/$skill_name/"
-    done
-  else
-    echo -e "  ${YELLOW}⚠${NC} Skills snapshot not found at ${SKILLS_SNAPSHOT_DIR}"
-  fi
-
-  # 2. Supplement with install_skills.sh (adds MLflow skills fetched from
-  #    github.com/mlflow/skills, plus any skill not already in the snapshot).
-  #    Best-effort: if it is missing or fails, the frozen snapshot still ships.
+  # Source skills via install_skills.sh (Databricks skills plus MLflow skills
+  # fetched from github.com/mlflow/skills).
   if [ ! -f "$INSTALL_SKILLS_SCRIPT" ]; then
-    echo -e "  ${YELLOW}⚠${NC} install_skills.sh not found — shipping snapshot skills only"
+    echo -e "  ${YELLOW}⚠${NC} install_skills.sh not found — no skills bundled"
   else
-    echo "  Adding external skills via install_skills.sh..."
+    echo "  Installing skills via install_skills.sh..."
     SKILLS_TEMP_DIR=$(mktemp -d)
     trap "rm -rf '$SKILLS_TEMP_DIR'" EXIT
     touch "$SKILLS_TEMP_DIR/databricks.yml"
     (cd "$SKILLS_TEMP_DIR" && bash "$INSTALL_SKILLS_SCRIPT") \
-      || echo -e "  ${YELLOW}⚠${NC} install_skills.sh failed — shipping snapshot skills only"
+      || echo -e "  ${YELLOW}⚠${NC} install_skills.sh failed — no skills bundled"
 
     INSTALLED_SKILLS_DIR="$SKILLS_TEMP_DIR/.claude/skills"
     if [ -d "$INSTALLED_SKILLS_DIR" ]; then
       for skill_dir in "$INSTALLED_SKILLS_DIR"/*/; do
         [ -d "$skill_dir" ] || continue
         skill_name=$(basename "$skill_dir")
-        # Snapshot wins: only add skills not already bundled.
         if [ -f "$skill_dir/SKILL.md" ] && [ ! -d "$STAGING_DIR/skills/$skill_name" ]; then
           mkdir -p "$STAGING_DIR/skills/$skill_name"
           cp -r "$skill_dir"* "$STAGING_DIR/skills/$skill_name/"

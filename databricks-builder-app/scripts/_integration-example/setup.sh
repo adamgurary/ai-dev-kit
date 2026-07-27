@@ -40,36 +40,16 @@ fi
 
 # Install skills
 echo ""
-echo "Installing all skills..."
+echo "Setting up skills directory..."
 SKILLS_DIR="$SCRIPT_DIR/.claude/skills"
 mkdir -p "$SKILLS_DIR"
 
-# Copy all skills from the bundled skills snapshot (excluding non-skill dirs).
-# The bundled skill copies moved to DEPRECATED-databricks-skills/ at the repo
-# root; prefer that snapshot and fall back to the legacy databricks-skills/ location.
-SKILLS_SRC="$SCRIPT_DIR/../../../DEPRECATED-databricks-skills"
-if [ ! -d "$SKILLS_SRC" ]; then
-    SKILLS_SRC="$SCRIPT_DIR/../../../databricks-skills"
-fi
-if [ -d "$SKILLS_SRC" ]; then
-    # Find all directories containing SKILL.md (these are actual skills)
-    for skill_dir in "$SKILLS_SRC"/*/; do
-        skill_name=$(basename "$skill_dir")
-        # Skip non-skill directories
-        if [ "$skill_name" = "TEMPLATE" ]; then
-            continue
-        fi
-        # Only copy if it has a SKILL.md (confirms it's a real skill)
-        if [ -f "$skill_dir/SKILL.md" ]; then
-            echo "  Installing: $skill_name"
-            cp -r "$skill_dir" "$SKILLS_DIR/"
-        fi
-    done
-    echo "Skills installed to $SKILLS_DIR"
-else
-    echo "Warning: databricks-skills not found at $SKILLS_SRC"
-    echo "Skills will need to be installed manually"
-fi
+# The in-repo bundled skills snapshot that this example used to copy from has
+# been removed from the repo (the historical copies still exist on the older
+# release v0.1.14). Install skills into "$SKILLS_DIR" via `databricks aitools
+# install` or install_skills.sh from the v0.1.14 release.
+echo "  Skills are no longer bundled in this repo — install them into"
+echo "  $SKILLS_DIR (e.g. via 'databricks aitools install')."
 
 # Copy .env.example to .env if it doesn't exist
 if [ ! -f ".env" ]; then

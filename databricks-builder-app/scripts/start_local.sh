@@ -234,7 +234,7 @@ echo -e "${YELLOW}[7/${TOTAL_STEPS}] Installing skills...${NC}"
 INSTALL_SKILLS_SCRIPT="$REPO_ROOT/databricks-skills/install_skills.sh"
 
 if [ ! -f "$INSTALL_SKILLS_SCRIPT" ]; then
-  echo -e "  ${YELLOW}⚠${NC} install_skills.sh not found — using bundled skills snapshot only"
+  echo -e "  ${YELLOW}⚠${NC} install_skills.sh not found — no skills installed"
 else
   # Run from PROJECT_DIR so skills install to databricks-builder-app/.claude/skills/
   cd "$PROJECT_DIR"
@@ -242,27 +242,24 @@ else
   cd "$PROJECT_DIR"
 fi
 
-# Scan skills from .claude/skills/ (where install_skills.sh puts them) and from
-# the repo-local skills snapshot (DEPRECATED-databricks-skills/ preferred, with
-# the legacy databricks-skills/ location as a fallback) — union of all.
+# Scan skills from .claude/skills/ (where install_skills.sh puts them). The
+# in-repo frozen skills snapshot was removed from this repo; the historical
+# copies still exist on the older release v0.1.14.
 SKILL_NAMES=""
 SKILL_COUNT=0
-for skills_root in "$PROJECT_DIR/.claude/skills" "$REPO_ROOT/DEPRECATED-databricks-skills" "$REPO_ROOT/databricks-skills"; do
-  [ -d "$skills_root" ] || continue
+skills_root="$PROJECT_DIR/.claude/skills"
+if [ -d "$skills_root" ]; then
   for skill_dir in "$skills_root"/*/; do
     [ -d "$skill_dir" ] || continue
     if [ -f "$skill_dir/SKILL.md" ]; then
       name=$(basename "$skill_dir")
       # Skip non-skill scaffolding (TEMPLATE, dotfiles; deprecated kept defensively).
       case "$name" in TEMPLATE|deprecated|.*) continue ;; esac
-      # Avoid duplicates
-      if ! echo ",$SKILL_NAMES," | grep -q ",$name,"; then
-        if [ -n "$SKILL_NAMES" ]; then SKILL_NAMES="${SKILL_NAMES},${name}"; else SKILL_NAMES="${name}"; fi
-        SKILL_COUNT=$((SKILL_COUNT + 1))
-      fi
+      if [ -n "$SKILL_NAMES" ]; then SKILL_NAMES="${SKILL_NAMES},${name}"; else SKILL_NAMES="${name}"; fi
+      SKILL_COUNT=$((SKILL_COUNT + 1))
     fi
   done
-done
+fi
 if [ -n "$SKILL_NAMES" ] && [ -f "$PROJECT_DIR/.env.local" ]; then
   sed -i '' "s|^ENABLED_SKILLS=.*|ENABLED_SKILLS=${SKILL_NAMES}|" "$PROJECT_DIR/.env.local"
 fi

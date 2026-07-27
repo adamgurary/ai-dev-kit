@@ -19,11 +19,10 @@ import yaml
 
 SKILLS_DIR = Path("databricks-skills")
 INSTALL_SCRIPT = SKILLS_DIR / "install_skills.sh"
-# The bundled skill copies are frozen/deprecated and now live under
-# DEPRECATED-databricks-skills/ at the repo root. Fall back to the top-level
-# databricks-skills/ dir for older checkouts.
-_DEPRECATED_SKILLS_ROOT = Path("DEPRECATED-databricks-skills")
-SKILL_DIRS_ROOT = _DEPRECATED_SKILLS_ROOT if _DEPRECATED_SKILLS_ROOT.is_dir() else SKILLS_DIR
+# The in-repo bundled skill copies (and install_skills.sh) have been removed
+# from this repo; the historical copies still exist on the older release
+# v0.1.14. When the skills directory is absent there is nothing to validate.
+SKILL_DIRS_ROOT = SKILLS_DIR
 SKIP_DIRS = {"TEMPLATE", "deprecated"}
 
 RESERVED_WORDS = {"anthropic", "claude"}
@@ -121,6 +120,17 @@ def get_local_skill_dirs() -> set[str]:
 
 
 def main() -> int:
+    # The in-repo skills snapshot and install_skills.sh were removed from this
+    # repo (they still exist on the older release v0.1.14). With nothing to
+    # validate locally, this check is a no-op.
+    if not SKILL_DIRS_ROOT.is_dir() or not INSTALL_SCRIPT.exists():
+        print(
+            f"No local skills to validate: {SKILL_DIRS_ROOT}/ or "
+            f"{INSTALL_SCRIPT} not present (skills now come from "
+            "databricks-agent-skills via 'databricks aitools install')."
+        )
+        return 0
+
     errors: list[str] = []
     actual_skills = get_local_skill_dirs()
 

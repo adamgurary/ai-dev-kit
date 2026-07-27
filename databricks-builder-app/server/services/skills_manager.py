@@ -89,24 +89,21 @@ def get_allowed_mcp_tools(
 
 
 # Skills source directories.  install_skills.sh aggregates skills from
-# multiple repos (this repo's databricks-skills/, mlflow/skills) into
-# the app's .claude/skills/ directory.  We check several locations so that
-# the server works both in local development and when deployed.
+# multiple repos (Databricks skills, mlflow/skills) into the app's
+# .claude/skills/ directory.  We check several locations so that the server
+# works both in local development and when deployed.
+#
+# The in-repo bundled (frozen) Databricks skills snapshot that used to be a
+# source here has been removed from the repo; the historical copies still exist
+# on the older release v0.1.14.  Skills now come solely from install_skills.sh
+# (or the deployed bundle).
 #
 # Candidate source directories (checked in priority order):
 #   1. .claude/skills/ inside the app — populated by install_skills.sh with
 #      the *full* union of Databricks + MLflow skills.
-#   2. The repo-local, bundled (frozen) Databricks skills snapshot.  The
-#      bundled skill copies were moved to DEPRECATED-databricks-skills/ at the
-#      repo root; older checkouts still have them directly under
-#      databricks-skills/.  We prefer the DEPRECATED-databricks-skills/ snapshot
-#      and fall back to the legacy location so the app works before and after
-#      that move.
-#   3. ./skills at app root — the deployed bundle location.
+#   2. ./skills at app root — the deployed bundle location.
 _APP_ROOT = Path(__file__).parent.parent.parent
 _INSTALLED_SKILLS_DIR = _APP_ROOT / '.claude' / 'skills'
-_DEPRECATED_SKILLS_DIR = _APP_ROOT.parent / 'DEPRECATED-databricks-skills'
-_LEGACY_DEV_SKILLS_DIR = _APP_ROOT.parent / 'databricks-skills'
 _DEPLOYED_SKILLS_DIR = _APP_ROOT / 'skills'
 
 # Local cache of skills within this app (copied on startup)
@@ -116,29 +113,17 @@ def _non_empty_dir(p: Path) -> bool:
   return p.exists() and p.is_dir() and any(p.iterdir())
 
 
-def _resolve_dev_skills_dir() -> Path:
-  """Resolve the repo-local skills snapshot: DEPRECATED-databricks-skills/ first, else legacy."""
-  if _non_empty_dir(_DEPRECATED_SKILLS_DIR):
-    return _DEPRECATED_SKILLS_DIR
-  return _LEGACY_DEV_SKILLS_DIR
-
-
-# Repo-local skills snapshot (DEPRECATED-databricks-skills/ preferred, legacy fallback).
-_DEV_SKILLS_DIR = _resolve_dev_skills_dir()
-
 # Build an ordered list of source directories.  The first directory that
 # contains a given skill wins, so put the most-complete source first.
 _SKILLS_SOURCE_DIRS: list[Path] = []
 if _non_empty_dir(_INSTALLED_SKILLS_DIR):
   _SKILLS_SOURCE_DIRS.append(_INSTALLED_SKILLS_DIR)
-if _non_empty_dir(_DEV_SKILLS_DIR):
-  _SKILLS_SOURCE_DIRS.append(_DEV_SKILLS_DIR)
 if _non_empty_dir(_DEPLOYED_SKILLS_DIR) and _DEPLOYED_SKILLS_DIR.resolve() != APP_SKILLS_DIR.resolve():
   _SKILLS_SOURCE_DIRS.append(_DEPLOYED_SKILLS_DIR)
 
 # Legacy single-directory reference used by callers that haven't been
 # updated yet.  Points to the first available source.
-SKILLS_SOURCE_DIR = _SKILLS_SOURCE_DIRS[0] if _SKILLS_SOURCE_DIRS else _DEV_SKILLS_DIR
+SKILLS_SOURCE_DIR = _SKILLS_SOURCE_DIRS[0] if _SKILLS_SOURCE_DIRS else _INSTALLED_SKILLS_DIR
 
 
 def _get_enabled_skills() -> list[str] | None:

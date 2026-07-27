@@ -313,8 +313,6 @@ cd ai-dev-kit/databricks-builder-app
 
 With `--enable-mcp`, the app also serves as an **MCP server** at `/mcp`, exposing the 40+ Databricks tools to [Genie Code](https://docs.databricks.com/en/genie/genie-code.html), AI Playground, and other MCP clients. The builder UI and MCP server run in a single deployment.
 
-> **Current dependencies (to be removed later):** the Builder App currently relies on the in-repo MCP server (`databricks-mcp-server` + `databricks-tools-core`) and a bundled, frozen skills snapshot under [`DEPRECATED-databricks-skills/`](DEPRECATED-databricks-skills/). Both are temporary couplings scheduled to be decoupled from the kit.
-
 See [`databricks-builder-app/`](databricks-builder-app/) for full documentation.
 
 
@@ -349,10 +347,9 @@ separate from — and replaces — the retired `databricks-ai-dev-kit` plugin th
 see [`.claude-plugin/DEPRECATED.md`](.claude-plugin/DEPRECATED.md).)
 
 Skills come from [github.com/databricks/databricks-agent-skills](https://github.com/databricks/databricks-agent-skills).
-The skill copies that used to be bundled in this repo are deprecated and frozen under
-[`DEPRECATED-databricks-skills/`](DEPRECATED-databricks-skills/); if you need the exact historical
-files, use git tag `v0.1.14`. Some skills were renamed in the move — see the breaking-change note
-below. (APX and Genie-specific skills are no longer bundled here; they live in their own repos.)
+The skill copies that used to be bundled in this repo have been removed; if you need the exact
+historical files, they still exist on the older release `v0.1.14` (git tag `v0.1.14`). Some skills
+were renamed in the move — see the breaking-change note below.
 
 ### Genie Code Skills
 
@@ -379,8 +376,8 @@ Skills are no longer bundled in this repository — they come from
 table in the notice at the top of this README). To see the current skill names, run
 `databricks aitools list` (CLI v1.0.0+) or browse the
 [databricks-agent-skills](https://github.com/databricks/databricks-agent-skills) repo. To reproduce
-the old bundled layout and names exactly, use git tag `v0.1.14` (the frozen copies also remain under
-[`DEPRECATED-databricks-skills/`](DEPRECATED-databricks-skills/)).
+the old bundled layout and names exactly, use the older release `v0.1.14` (git tag `v0.1.14`), where
+the frozen copies still exist.
 
 ## Architecture
 
