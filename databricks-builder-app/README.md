@@ -565,7 +565,8 @@ See the [Databricks MLflow Tracing documentation](https://docs.databricks.com/aw
 | `relation does not exist` | Migrations didn't run | Redeploy the app to trigger migrations |
 | App shows blank page | Check logs: `databricks apps logs <app-name>` | Usually a package install error — check requirements.txt |
 | Deploy exits despite Apps UI looking fine | Status parse / id mismatch | Deploy requires `--output json` SUCCEEDED for **this** deployment id; check script output |
-| `No MLflow skills installed` | GitHub fetch of mlflow/skills failed | Retry, set `MLFLOW_REF=<tag>`, or `ALLOW_EMPTY_MLFLOW_SKILLS=1` for an intentional empty set |
+| `MLflow skills incomplete: N/8` | GitHub fetch of mlflow/skills partially failed | Retry, set `MLFLOW_REF=<ref>`, or `ALLOW_PARTIAL_MLFLOW_SKILLS=1` to accept a short set |
+| `Could not parse 'databricks aitools list'` | CLI inventory output format changed | Upgrade/downgrade the CLI, or `ALLOW_STALE_AGENT_SKILLS=1` to install the offline snapshot |
 | `401` / no workspace access token | Apps omitted `X-Forwarded-Access-Token` | Fail-closed by design — do not run CLI as the app SP; fix Apps auth headers |
 
 ## Embedding in Other Apps

@@ -21,7 +21,10 @@ PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
 MIN_AITOOLS_CLI_VERSION="1.0.0"
 # CLI ≥1.6 is plugin-first; Builder App needs raw skill files via --skills-only.
 SKILLS_ONLY_CLI_VERSION="1.6.0"
-MLFLOW_REF="${MLFLOW_REF:-main}"  # Override with a tag/commit for reproducible installs
+# Pinned so two deploys of the same builder-app commit ship identical skill content.
+# mlflow/skills publishes no tags, so this is a commit SHA on main; bump deliberately
+# after reviewing upstream changes. Override with MLFLOW_REF=main to track latest.
+MLFLOW_REF="${MLFLOW_REF:-c8228eef0da8d18ac34aa632e1276ce7da985363}"
 PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
 SILENT=false
 INSTALL_EXPERIMENTAL=true
@@ -31,7 +34,10 @@ INSTALL_EXPERIMENTAL=true
 MLFLOW_SKILLS="agent-evaluation analyze-mlflow-chat-session analyze-mlflow-trace instrumenting-with-mlflow-tracing mlflow-onboarding querying-mlflow-metrics retrieving-mlflow-traces searching-mlflow-docs"
 MLFLOW_BASE_URL="https://raw.githubusercontent.com/mlflow/skills"
 
-# Agent skills fallback snapshot (v0.2.3) when `databricks aitools list` is unavailable
+# Offline snapshot used only when `databricks aitools list` is unavailable. It is a
+# point-in-time copy and will drift from the live inventory — bump the stamp whenever
+# it is refreshed so warnings say which vintage was installed.
+AGENT_SKILLS_SNAPSHOT_VERSION="0.2.3"
 AGENT_B_STABLE_FALLBACK="databricks-apps databricks-core databricks-dabs databricks-jobs databricks-lakebase databricks-model-serving databricks-pipelines databricks-serverless-migration databricks-vector-search"
 AGENT_B_EXPERIMENTAL_FALLBACK="databricks-agent-bricks databricks-ai-functions databricks-aibi-dashboards databricks-apps-python databricks-dbsql databricks-docs databricks-execution-compute databricks-genie databricks-iceberg databricks-lakeflow-connect databricks-metric-views databricks-mlflow-evaluation databricks-python-sdk databricks-spark-structured-streaming databricks-synthetic-data-gen databricks-unity-catalog databricks-unstructured-pdf-generation databricks-zerobus-ingest spark-python-data-source"
 AGENT_B_EXCLUDED="databricks-execution-compute"
@@ -81,28 +87,81 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Parse `databricks aitools list -o json` into "<experimental> <name>" lines.
+# Exits non-zero when the payload is missing, malformed, or has no usable
+# entries, so the caller can distinguish "CLI absent" from "CLI changed shape".
+_parse_agent_b_inventory() {
+  python3 -c '
+import sys, json
+
+try:
+    data = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(1)
+
+items = None
+if isinstance(data, list):
+    items = data
+elif isinstance(data, dict):
+    for key in ("skills", "items", "data", "results"):
+        value = data.get(key)
+        if isinstance(value, list):
+            items = value
+            break
+if not items:
+    sys.exit(1)
+
+lines = []
+for item in items:
+    if not isinstance(item, dict):
+        continue
+    name = item.get("name") or item.get("id") or ""
+    if not name:
+        continue
+    experimental = item.get("experimental")
+    if isinstance(experimental, str):
+        experimental = experimental.strip().lower() in ("true", "1", "yes")
+    lines.append(("true" if experimental else "false") + " " + str(name))
+
+if not lines:
+    sys.exit(1)
+print("\n".join(lines))
+'
+}
+
 fetch_agent_b_inventory() {
   [ -n "$AGENT_B_STABLE" ] && return
 
-  local json=""
+  local json="" list_rc=0
   if command -v databricks >/dev/null 2>&1; then
-    json=$(databricks aitools list -o json 2>/dev/null) || json=""
+    json=$(databricks aitools list -o json 2>/dev/null) || list_rc=$?
+  else
+    list_rc=127
   fi
 
-  if [ -n "$json" ]; then
-    local parsed
-    parsed=$(echo "$json" | awk '
-      /"name":/         { gsub(/[",]/, "", $2); name=$2 }
-      /"experimental":/ { gsub(/[",]/, "", $2); if (name != "") { print $2, name; name="" } }')
-    AGENT_B_STABLE=$(echo "$parsed" | awk '$1=="false"{print $2}' | tr '\n' ' ')
-    AGENT_B_EXPERIMENTAL=$(echo "$parsed" | awk '$1=="true"{print $2}' | tr '\n' ' ')
+  if [ "$list_rc" -eq 0 ] && [ -n "$json" ]; then
+    local parsed=""
+    parsed=$(printf '%s' "$json" | _parse_agent_b_inventory) || parsed=""
+
+    if [ -n "$parsed" ]; then
+      AGENT_B_STABLE=$(echo "$parsed" | awk '$1=="false"{print $2}' | tr '\n' ' ')
+      AGENT_B_EXPERIMENTAL=$(echo "$parsed" | awk '$1=="true"{print $2}' | tr '\n' ' ')
+      [ -n "$AGENT_B_STABLE" ] && return
+    fi
+
+    # The CLI answered but we could not read it. Falling back here would ship a
+    # silently different skill set behind a green check, so treat it as fatal.
+    if [ "${ALLOW_STALE_AGENT_SKILLS:-0}" = "1" ]; then
+      warn "Unreadable 'databricks aitools list' output; using snapshot v${AGENT_SKILLS_SNAPSHOT_VERSION} (ALLOW_STALE_AGENT_SKILLS=1)"
+    else
+      die "Could not parse 'databricks aitools list -o json' — the CLI output format may have changed.
+ Set ALLOW_STALE_AGENT_SKILLS=1 to install the offline snapshot (v${AGENT_SKILLS_SNAPSHOT_VERSION}) instead."
+    fi
   fi
 
-  if [ -z "$AGENT_B_STABLE" ]; then
-    AGENT_B_STABLE="$AGENT_B_STABLE_FALLBACK"
-    AGENT_B_EXPERIMENTAL="$AGENT_B_EXPERIMENTAL_FALLBACK"
-    warn "Using offline agent-skills inventory snapshot"
-  fi
+  AGENT_B_STABLE="$AGENT_B_STABLE_FALLBACK"
+  AGENT_B_EXPERIMENTAL="$AGENT_B_EXPERIMENTAL_FALLBACK"
+  warn "Databricks CLI inventory unavailable; using offline agent-skills snapshot v${AGENT_SKILLS_SNAPSHOT_VERSION} (may differ from the live aitools inventory)"
 }
 
 resolve_all_agent_skills() {
@@ -148,7 +207,8 @@ cleanup_stale_agent_skills() {
   local skill
   for skill in $SELECTED_AGENT_B_SKILLS; do
     if [ -d "$skills_dir/$skill" ] && [ ! -L "$skills_dir/$skill" ]; then
-      rm -rf "$skills_dir/$skill"
+      # :? guards against an empty expansion turning this into `rm -rf /`.
+      rm -rf "${skills_dir:?}/${skill:?}"
       msg "${D}Removed stale bundled copy: $skill${N}"
     fi
   done
@@ -205,7 +265,8 @@ install_agent_skills() {
       warn "Agent skill '$skill' missing from aitools store — skipped"
       continue
     fi
-    rm -rf "$dest/$skill"
+    # :? guards against an empty expansion turning this into `rm -rf /`.
+    rm -rf "${dest:?}/${skill:?}"
     cp -R "$store/$skill" "$dest/$skill"
   done
   ok "Agent skills copied to .claude/skills/"
@@ -232,25 +293,34 @@ install_mlflow_skills() {
       warn "Could not fetch MLflow skill: $skill"
     fi
   done
-  if [ "$count" -eq 0 ]; then
-    if [ "${ALLOW_EMPTY_MLFLOW_SKILLS:-0}" = "1" ]; then
-      warn "No MLflow skills installed (ALLOW_EMPTY_MLFLOW_SKILLS=1 override)"
+  local expected
+  expected=$(_count $MLFLOW_SKILLS)
+  # A partial fetch is as silent as an empty one: some skills simply go missing
+  # while the installer still reports success. Treat any shortfall as an error.
+  local allow_shortfall="${ALLOW_PARTIAL_MLFLOW_SKILLS:-${ALLOW_EMPTY_MLFLOW_SKILLS:-0}}"
+
+  if [ "$count" -lt "$expected" ]; then
+    if [ "$allow_shortfall" = "1" ]; then
+      warn "MLflow skills incomplete: ${count}/${expected} installed (override set)"
     else
-      die "No MLflow skills installed from ${mlflow_raw_url}.
- Set ALLOW_EMPTY_MLFLOW_SKILLS=1 to continue without them, or pin MLFLOW_REF to a reachable ref."
+      die "MLflow skills incomplete: ${count}/${expected} installed from ${mlflow_raw_url}.
+ Set ALLOW_PARTIAL_MLFLOW_SKILLS=1 to continue anyway, or point MLFLOW_REF at a reachable ref."
     fi
   else
-    ok "MLflow skills ($count) → .claude/skills/"
+    ok "MLflow skills ($count/$expected) → .claude/skills/"
   fi
 }
 
 # ─── Main ─────────────────────────────────────────────────────
-resolve_all_agent_skills
-install_agent_skills
-install_mlflow_skills
+# Guarded so tests can source this file for its helpers without installing.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  resolve_all_agent_skills
+  install_agent_skills
+  install_mlflow_skills
 
-if [ "$SILENT" != true ]; then
-  total=$(_count $SELECTED_AGENT_B_SKILLS $MLFLOW_SKILLS)
-  echo ""
-  echo -e "  ${G}Done.${N} ${total} skills available under .claude/skills/"
+  if [ "$SILENT" != true ]; then
+    total=$(_count $SELECTED_AGENT_B_SKILLS $MLFLOW_SKILLS)
+    echo ""
+    echo -e "  ${G}Done.${N} ${total} skills available under .claude/skills/"
+  fi
 fi

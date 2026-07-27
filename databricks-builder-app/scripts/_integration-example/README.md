@@ -33,8 +33,16 @@ cd /path/to/your/project/_integration-example
 
 This creates a virtual environment, installs dependencies, and installs skills
 via `install_builder_skills.sh`. Skill install failures abort setup (no silent
-empty-skills success). To continue without MLflow skills when GitHub is
-unreachable, set `ALLOW_EMPTY_MLFLOW_SKILLS=1`.
+empty- or partial-skills success).
+
+MLflow skills are fetched from a pinned commit so repeated installs of the same
+builder-app revision produce identical content; set `MLFLOW_REF` to track a
+different ref. Escape hatches when a source is unreachable:
+
+| Variable | Effect |
+| --- | --- |
+| `ALLOW_PARTIAL_MLFLOW_SKILLS=1` | Accept fewer MLflow skills than expected |
+| `ALLOW_STALE_AGENT_SKILLS=1` | Use the offline agent-skills snapshot when the CLI inventory is unreadable |
 
 ### 3. Configure credentials
 

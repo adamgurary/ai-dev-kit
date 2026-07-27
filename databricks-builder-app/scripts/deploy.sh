@@ -18,6 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(dirname "$PROJECT_DIR")"
 
+# shellcheck source=lib/deploy_status.sh
+. "$SCRIPT_DIR/lib/deploy_status.sh"
+
 APP_NAME="${APP_NAME:-}"
 PROFILE="${PROFILE:-}"
 STAGING_DIR=""
@@ -429,25 +432,7 @@ DEPLOY_ID=""
 DEPLOY_PARSE_ERR=""
 if [ -n "$DEPLOY_JSON" ]; then
   # Keep parse failures visible — never swallow into an empty "failed" state.
-  PARSE_OUT=$(printf '%s' "$DEPLOY_JSON" | python3 -c "
-import sys, json
-raw = sys.stdin.read()
-try:
-    data = json.loads(raw)
-except Exception as e:
-    print('PARSE_ERROR\t' + str(e))
-    sys.exit(0)
-state = ''
-deploy_id = ''
-if isinstance(data, dict):
-    status = data.get('status') or {}
-    if isinstance(status, dict):
-        state = status.get('state') or ''
-    if not state:
-        state = data.get('state') or ''
-    deploy_id = data.get('deployment_id') or ''
-print('OK\t' + state + '\t' + deploy_id)
-") || true
+  PARSE_OUT=$(parse_deploy_response "$DEPLOY_JSON") || true
   case "$PARSE_OUT" in
     PARSE_ERROR$'\t'*)
       DEPLOY_PARSE_ERR="${PARSE_OUT#PARSE_ERROR	}"
@@ -478,30 +463,14 @@ if [ -z "$DEPLOY_STATE" ] || [ "$DEPLOY_STATE" != "SUCCEEDED" ]; then
   if [ -z "$DEPLOY_ID" ]; then
     echo -e "  ${YELLOW}!${NC} No deployment_id in deploy response; refusing to trust active_deployment"
   else
-    VERIFY_OUT=$(
-      DEPLOY_ID="$DEPLOY_ID" databricks apps get "$APP_NAME" $CLI_ARGS --output json 2>/dev/null | python3 -c "
-import os, sys, json
-submitted = os.environ.get('DEPLOY_ID', '')
-try:
-    data = json.load(sys.stdin)
-except Exception as e:
-    print('PARSE_ERROR\t' + str(e))
-    sys.exit(0)
-active = data.get('active_deployment') or {}
-active_id = active.get('deployment_id') or ''
-state = (active.get('status') or {}).get('state') or ''
-if submitted and active_id == submitted and state:
-    print('OK\t' + state)
-else:
-    print('MISMATCH\t' + active_id + '\t' + state)
-" 2>/dev/null || echo "PARSE_ERROR	apps get failed"
-    )
+    VERIFY_OUT=$(verify_deploy_state "$APP_NAME" "$DEPLOY_ID" $CLI_ARGS) || true
     case "$VERIFY_OUT" in
       OK$'\t'*)
         DEPLOY_STATE="${VERIFY_OUT#OK	}"
         ;;
       MISMATCH$'\t'*)
-        echo -e "  ${YELLOW}!${NC} active_deployment does not match submitted id ${DEPLOY_ID}; ignoring"
+        VERIFY_ACTIVE_ID=$(printf '%s' "$VERIFY_OUT" | awk -F'\t' '{print $2}')
+        echo -e "  ${YELLOW}!${NC} active_deployment (${VERIFY_ACTIVE_ID:-none}) is not the submitted deployment ${DEPLOY_ID}; ignoring its state"
         ;;
       PARSE_ERROR$'\t'*)
         echo -e "  ${YELLOW}!${NC} Could not verify deployment via apps get: ${VERIFY_OUT#PARSE_ERROR	}"
@@ -550,7 +519,13 @@ for obj in objects:
   echo ""
 else
   echo ""
-  echo -e "${RED}Deployment finished without SUCCEEDED status (state='${DEPLOY_STATE:-unknown}').${NC}"
+  echo -e "${RED}Could not confirm a SUCCEEDED deployment (state='${DEPLOY_STATE:-unknown}').${NC}"
+  case "$DEPLOY_STATE" in
+    IN_PROGRESS|PENDING|DEPLOYING)
+      echo -e "  The deployment is still running; it may yet succeed."
+      echo -e "  Re-check with: databricks apps get ${APP_NAME} ${CLI_ARGS} --output json"
+      ;;
+  esac
   if [ -n "$DEPLOY_PARSE_ERR" ]; then
     echo -e "  Deploy JSON parse error: ${DEPLOY_PARSE_ERR}"
   fi

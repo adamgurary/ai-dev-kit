@@ -19,6 +19,8 @@ lib/
 lib64/
 # Exception: frontend source lib (Python ignores lib/ for build artifacts)
 !databricks-builder-app/client/src/lib/
+# Exception: sourced shell helpers for deploy.sh (not a build artifact)
+!databricks-builder-app/scripts/lib/
 parts/
 sdist/
 var/
