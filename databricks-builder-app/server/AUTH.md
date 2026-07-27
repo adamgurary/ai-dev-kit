@@ -35,7 +35,9 @@ Databricks MCP tools are registered.
   `DATABRICKS_CONFIG_FILE` / `DATABRICKS_CONFIG_PROFILE=DEFAULT` /
   `DATABRICKS_AUTH_TYPE=pat`. In deployed mode, inherited
   `DATABRICKS_CLIENT_ID` / `SECRET` are scrubbed so the CLI does not run as the
-  app service principal.
+  app service principal. If Apps omit `X-Forwarded-Access-Token`, `invoke_agent`
+  fails closed with 401 — it does **not** fall back to the FMAPI token or the
+  ambient app SP.
 - **App API helpers** (clusters/warehouses list): still use
   `databricks_tools_core.auth` contextvars where needed.
 

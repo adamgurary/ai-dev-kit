@@ -392,17 +392,67 @@ echo ""
 # Step 8: Deploy the app
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}[8/${TOTAL_STEPS}] Deploying app...${NC}"
-DEPLOY_OUTPUT=$(databricks apps deploy "$APP_NAME" --source-code-path "$WORKSPACE_PATH" $CLI_ARGS 2>&1)
-echo "$DEPLOY_OUTPUT"
+# Capture JSON on stdout only. Do not merge stderr (progress/spinner) into the
+# parse stream — that would break json.loads even with --output json.
+set +e
+DEPLOY_JSON=$(databricks apps deploy "$APP_NAME" --source-code-path "$WORKSPACE_PATH" $CLI_ARGS --output json)
+DEPLOY_RC=$?
+set -e
 
-DEPLOY_STATE=$(echo "$DEPLOY_OUTPUT" | python3 -c "
+if [ -n "$DEPLOY_JSON" ]; then
+  echo "$DEPLOY_JSON" | python3 -m json.tool 2>/dev/null || echo "$DEPLOY_JSON"
+fi
+
+DEPLOY_STATE=""
+DEPLOY_PARSE_ERR=""
+if [ -n "$DEPLOY_JSON" ]; then
+  # Keep parse failures visible — never swallow into an empty "failed" state.
+  PARSE_OUT=$(printf '%s' "$DEPLOY_JSON" | python3 -c "
 import sys, json
+raw = sys.stdin.read()
 try:
-    data = json.load(sys.stdin)
-    print(data.get('status', {}).get('state', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    data = json.loads(raw)
+except Exception as e:
+    print('PARSE_ERROR\t' + str(e))
+    sys.exit(0)
+state = ''
+if isinstance(data, dict):
+    status = data.get('status') or {}
+    if isinstance(status, dict):
+        state = status.get('state') or ''
+    if not state:
+        state = data.get('state') or ''
+print('OK\t' + state)
+") || true
+  case "$PARSE_OUT" in
+    PARSE_ERROR$'\t'*)
+      DEPLOY_PARSE_ERR="${PARSE_OUT#PARSE_ERROR	}"
+      echo -e "  ${YELLOW}!${NC} Could not parse deploy JSON: ${DEPLOY_PARSE_ERR}"
+      ;;
+    OK$'\t'*)
+      DEPLOY_STATE="${PARSE_OUT#OK	}"
+      ;;
+  esac
+fi
+
+# If deploy stdout was incomplete/unparsed, verify via apps get (always JSON).
+if [ -z "$DEPLOY_STATE" ] || [ "$DEPLOY_STATE" != "SUCCEEDED" ]; then
+  VERIFY_STATE=$(databricks apps get "$APP_NAME" $CLI_ARGS --output json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('active_deployment', {}).get('status', {}).get('state', ''))
+") || true
+  if [ -n "$VERIFY_STATE" ]; then
+    DEPLOY_STATE="$VERIFY_STATE"
+  fi
+fi
+
+if [ "$DEPLOY_RC" -ne 0 ]; then
+  echo ""
+  echo -e "${RED}Deployment command failed (exit ${DEPLOY_RC}).${NC}"
+  echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
+  exit 1
+fi
 
 if [ "$DEPLOY_STATE" = "SUCCEEDED" ]; then
   echo ""
@@ -444,7 +494,10 @@ for obj in objects:
   echo ""
 else
   echo ""
-  echo -e "${RED}Deployment may have issues. Check the output above.${NC}"
+  echo -e "${RED}Deployment finished without SUCCEEDED status (state='${DEPLOY_STATE:-unknown}').${NC}"
+  if [ -n "$DEPLOY_PARSE_ERR" ]; then
+    echo -e "  Deploy JSON parse error: ${DEPLOY_PARSE_ERR}"
+  fi
   echo -e "  Check logs with: databricks apps logs ${APP_NAME} ${CLI_ARGS}"
   exit 1
 fi

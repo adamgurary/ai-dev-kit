@@ -49,6 +49,37 @@ def test_apps_request_token_is_used_for_cli_auth(monkeypatch):
   assert asyncio.run(get_current_token(request)) == 'user-token'
 
 
+def test_deployed_missing_forwarded_token_returns_none(monkeypatch):
+  from server.services.user import get_current_token
+
+  monkeypatch.setenv('ENV', 'production')
+  request = Request({'type': 'http', 'headers': []})
+
+  assert asyncio.run(get_current_token(request)) is None
+
+
+def test_cli_auth_env_without_token_does_not_scrub_or_write(tmp_path, monkeypatch):
+  from server.services.cli_auth import build_cli_auth_env
+
+  monkeypatch.setenv('DATABRICKS_CLIENT_ID', 'app-sp')
+  monkeypatch.setenv('DATABRICKS_CLIENT_SECRET', 'app-secret')
+
+  env = build_cli_auth_env(tmp_path, host='https://example.databricks.com', token=None)
+
+  assert env == {}
+  assert not (tmp_path / '.databrickscfg').exists()
+
+
+def test_invoke_agent_tools_token_excludes_fmapi_fallback():
+  from pathlib import Path
+
+  source = Path('server/routers/agent.py').read_text()
+  assert 'tools_token = body.target_databricks_token or workspace_token or fmapi_token' not in source
+  assert 'tools_token = body.target_databricks_token or workspace_token' in source
+  assert 'if not tools_token and is_deployed_mode():' in source
+  assert 'to the app service principal.' in source
+
+
 def test_cli_only_agent_enables_bash_and_has_no_mcp_loader():
   from server.services import agent
 

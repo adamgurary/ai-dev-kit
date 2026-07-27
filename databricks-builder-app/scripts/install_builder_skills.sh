@@ -13,7 +13,7 @@
 #
 # Requires: Databricks CLI v1.0.0+ (databricks aitools), curl, git (for ref resolution).
 #
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(dirname "$SCRIPT_DIR")}"
@@ -43,7 +43,8 @@ G='\033[0;32m' Y='\033[1;33m' R='\033[0;31m' B='\033[1m' D='\033[2m' N='\033[0m'
 
 msg()  { [ "$SILENT" = true ] || echo -e "  $*"; }
 ok()   { [ "$SILENT" = true ] || echo -e "  ${G}✓${N} $*"; }
-warn() { [ "$SILENT" = true ] || echo -e "  ${Y}!${N} $*"; }
+# Warnings always print (even --silent/deploy) so soft failures are not hidden.
+warn() { echo -e "  ${Y}!${N} $*" >&2; }
 die()  { echo -e "  ${R}✗${N} $*" >&2; exit 1; }
 step() { [ "$SILENT" = true ] || echo -e "\n${B}$*${N}"; }
 

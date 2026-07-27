@@ -138,7 +138,7 @@ async def get_current_token(request: Request) -> str | None:
   if not _is_local_development():
     logger.warning(
       'Production request has no X-Forwarded-Access-Token; '
-      'workspace operations will fall back to app credentials'
+      'returning None so callers can fail closed instead of using app SP credentials'
     )
     return None
 

@@ -25,6 +25,7 @@ from ..services.backup_manager import mark_for_backup
 from ..services.storage import ConversationStorage, ProjectStorage
 from ..services.title_generator import generate_title_async
 from ..services.project_access import require_stream_owner
+from ..services.fmapi_auth import is_deployed_mode
 from ..services.user import get_current_user, get_current_token, get_fmapi_token, get_workspace_url
 
 logger = logging.getLogger(__name__)
@@ -136,11 +137,22 @@ async def invoke_agent(request: Request, body: InvokeAgentRequest):
     fmapi_host = workspace_url
 
     # Skills/CLI operations target the caller-specified workspace when present.
-    # Prefer the Apps proxy's request-scoped user token; retain the prior SP
-    # fallback when the proxy does not provide one.
+    # Prefer the Apps proxy's request-scoped user token. Never fall back to the
+    # FMAPI/model-serving token — that is a different credential and produces
+    # opaque CLI failures. In deployed mode, refuse to run without a workspace
+    # token rather than silently inheriting the app service principal.
     is_cross_workspace = body.target_databricks_host is not None
     tools_host = body.target_databricks_host or workspace_url
-    tools_token = body.target_databricks_token or workspace_token or fmapi_token
+    tools_token = body.target_databricks_token or workspace_token
+    if not tools_token and is_deployed_mode():
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                'No workspace access token available. Databricks Apps must provide '
+                'X-Forwarded-Access-Token for CLI operations. Refusing to fall back '
+                'to the app service principal.'
+            ),
+        )
 
     # Verify project exists and belongs to user
     project_storage = ProjectStorage(user_email)
