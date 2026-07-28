@@ -406,6 +406,48 @@ echo ""
 # Step 8: Deploy the app
 # ─────────────────────────────────────────────────────────────────────────────
 echo -e "${YELLOW}[8/${TOTAL_STEPS}] Deploying app...${NC}"
+
+# Apps rejects deploy unless compute is RUNNING. Refresh status and start if needed.
+APP_INFO=$(databricks apps get "$APP_NAME" $CLI_ARGS --output json 2>/dev/null) || true
+COMPUTE_STATE=$(printf '%s' "$APP_INFO" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+print((data.get('compute_status') or {}).get('state') or '')
+" 2>/dev/null || echo "")
+
+if [ "$COMPUTE_STATE" != "RUNNING" ]; then
+  echo -e "  App compute is '${COMPUTE_STATE:-unknown}' — starting before deploy..."
+  set +e
+  START_OUT=$(databricks apps start "$APP_NAME" $CLI_ARGS --output json 2>&1)
+  START_RC=$?
+  set -e
+  if [ "$START_RC" -ne 0 ]; then
+    echo "$START_OUT" | python3 -m json.tool 2>/dev/null || echo "$START_OUT"
+    echo -e "${RED}Failed to start app '${APP_NAME}' (exit ${START_RC}).${NC}"
+    echo -e "  Start manually with: databricks apps start ${APP_NAME} ${CLI_ARGS}"
+    exit 1
+  fi
+  APP_INFO=$(databricks apps get "$APP_NAME" $CLI_ARGS --output json 2>/dev/null) || true
+  COMPUTE_STATE=$(printf '%s' "$APP_INFO" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+print((data.get('compute_status') or {}).get('state') or '')
+" 2>/dev/null || echo "")
+  if [ "$COMPUTE_STATE" != "RUNNING" ]; then
+    echo -e "${RED}App '${APP_NAME}' is still not RUNNING after start (state='${COMPUTE_STATE:-unknown}').${NC}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓${NC} App compute is RUNNING"
+else
+  echo -e "  ${GREEN}✓${NC} App compute already RUNNING"
+fi
+
 # Capture JSON on stdout only. Do not merge stderr (progress/spinner) into the
 # parse stream — that would break json.loads even with --output json.
 set +e
